@@ -62,9 +62,6 @@
             #clientsGrid {
                 max-height: 18rem;
             }
-            #chatViewport {
-                min-height: 15rem;
-            }
             table th,
             table td {
                 padding-left: 0.75rem !important;
@@ -93,12 +90,6 @@
             <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
                 <button onclick="openModal('importModal')" class="flex-1 md:flex-initial flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md text-sm">
                     <i class="lucide-file-spreadsheet w-4 h-4"></i> Importar Ficheiro (CSV)
-                </button>
-                <button onclick="openModal('saleModal')" class="flex-1 md:flex-initial flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md text-sm">
-                    <i class="lucide-plus w-4 h-4"></i> Registar Venda
-                </button>
-                <button onclick="openModal('clientModal')" class="flex-1 md:flex-initial flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-4 py-2.5 rounded-xl transition-all text-sm">
-                    <i class="lucide-users w-4 h-4"></i> Novo Cliente
                 </button>
             </div>
         </div>
@@ -239,7 +230,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           
           <!-- MATRIZ DE POSITIVAÇÃO PRINCIPAL -->
-          <div class="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-2xl shadow-xl flex flex-col overflow-hidden">
+          <div class="lg:col-span-3 bg-slate-950 border border-slate-800 rounded-2xl shadow-xl flex flex-col overflow-hidden">
             
             <!-- CABEÇALHO FILTROS INTERNOS -->
             <div class="p-5 border-b border-slate-800/90 flex flex-col gap-4">
@@ -322,45 +313,6 @@
             </div>
           </div>
 
-          <!-- COLUNA DIREITA: CO-PILOTO COMERCIAL INTELIGENTE -->
-          <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col h-[650px] lg:sticky lg:top-[100px]">
-            <div class="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <div class="bg-indigo-500/10 p-1.5 rounded-lg text-indigo-400 border border-indigo-500/20">
-                  <i class="lucide-sparkles w-4 h-4 animate-pulse"></i>
-                </div>
-                <div>
-                  <h3 class="text-sm font-bold text-slate-200">Co-Piloto Comercial</h3>
-                  <p class="text-[10px] text-slate-400">Análise de mix e oportunidades de positivação</p>
-                </div>
-              </div>
-              <span class="text-[9px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">Gemini</span>
-            </div>
-
-            <!-- CHAT VIEWPORT -->
-            <div id="chatViewport" class="p-4 flex-1 overflow-y-auto space-y-3.5 bg-slate-950/40 flex flex-col">
-              <!-- Mensagens carregadas de forma dinâmica -->
-            </div>
-
-            <!-- AI SUGGESTION PRESETS -->
-            <div class="p-2 border-t border-slate-800/80 bg-slate-900/30 flex gap-2 overflow-x-auto">
-              <button onclick="triggerPresetQuery(1)" class="whitespace-nowrap bg-slate-800 hover:bg-slate-750 text-slate-300 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-700/60">
-                🎯 3 Oportunidades no Bairro
-              </button>
-              <button onclick="triggerPresetQuery(2)" class="whitespace-nowrap bg-slate-800 hover:bg-slate-750 text-slate-300 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-700/60">
-                💬 Roteiro de Proposta
-              </button>
-            </div>
-
-            <!-- CHAT INPUT -->
-            <form id="chatForm" onsubmit="handleSendChat(event)" class="p-3 bg-slate-900/60 border-t border-slate-800/85 flex items-center gap-2">
-              <input type="text" id="chatInput" placeholder="Pergunte sobre mix ideal ou abordagens..." class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
-              <button type="submit" id="chatSendBtn" class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 p-2.5 rounded-xl transition-all">
-                <i class="lucide-send w-4 h-4 text-white"></i>
-              </button>
-            </form>
-          </div>
-
         </div>
 
       </main>
@@ -417,94 +369,6 @@
         </div>
       </div>
 
-      <!-- 2. REGISTAR VENDA MODAL -->
-      <div id="saleModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-md p-6 overflow-hidden shadow-2xl">
-          <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-5">
-            <h3 class="text-lg font-extrabold text-slate-100 flex items-center gap-2">
-              <i class="lucide-shopping-bag text-indigo-500 w-5 h-5"></i> Registar Nova Venda Manual
-            </h3>
-            <button onClick="closeModal('saleModal')" class="text-slate-500 hover:text-slate-300 text-sm font-bold bg-slate-900 w-8 h-8 rounded-full flex items-center justify-center">✕</button>
-          </div>
-
-          <form onSubmit="handleManualSale(event)" class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Cliente Ativo</label>
-              <select id="modalSaleClient" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-                <!-- Populado dinamicamente -->
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Produto do Catálogo</label>
-              <select id="modalSaleProduct" onchange="modalUpdatePrice()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-                <!-- Populado dinamicamente -->
-              </select>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Preço Praticado (R$)</label>
-                <input type="number" step="0.01" id="modalSalePrice" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Quantidade Total (CX)</label>
-                <input type="number" min="1" id="modalSaleQty" value="1" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Data do Faturamento</label>
-              <input type="date" id="modalSaleDate" value="2026-01-21" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-            </div>
-
-            <div class="pt-4 flex gap-3">
-              <button type="button" onclick="closeModal('saleModal')" class="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-300 font-semibold py-2.5 rounded-xl border border-slate-800 text-sm">Cancelar</button>
-              <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm">Registar</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- 3. CADASTRO DE NOVO CLIENTE MODAL -->
-      <div id="clientModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-md p-6 overflow-hidden shadow-2xl">
-          <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-5">
-            <h3 class="text-lg font-extrabold text-slate-100 flex items-center gap-2">
-              <i class="lucide-users text-indigo-500 w-5 h-5"></i> Registar Novo Cliente
-            </h3>
-            <button onclick="closeModal('clientModal')" class="text-slate-500 hover:text-slate-300 text-sm font-bold bg-slate-900 w-8 h-8 rounded-full flex items-center justify-center">✕</button>
-          </div>
-
-          <form onSubmit="handleManualClient(event)" class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Código SAP (ex: 500xxxx)</label>
-              <input type="text" id="modalClientSap" required placeholder="Ex: 5007200" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Razão Social / Nome Comercial</label>
-              <input type="text" id="modalClientName" required placeholder="Ex: MERCADO SUPER S/A" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Rede / Grupo</label>
-              <input type="text" id="modalClientRede" value="SEM REDE" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Bairro</label>
-                <input type="text" id="modalClientBairro" placeholder="Ex: Centro" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Cidade</label>
-                <input type="text" id="modalClientCidade" placeholder="Ex: Contagem" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-              </div>
-            </div>
-
-            <div class="pt-4 flex gap-3">
-              <button type="button" onclick="closeModal('clientModal')" class="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-300 font-semibold py-2.5 rounded-xl border border-slate-800 text-sm">Cancelar</button>
-              <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm">Criar Cliente</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
     <!-- FOOTER -->
     <footer class="bg-slate-950 border-t border-slate-800 py-6 px-6 mt-12 text-center text-xs text-slate-500">
         <p>© 2026 POSITIVA SIM - Controle de Mix Itambé. Desenvolvido para Vendas e Trade Marketing.</p>
@@ -547,13 +411,6 @@
         let selectedViewMode = 'client';
         let selectedRede = 'ALL';
         let activeStatusFilter = 'ALL';
-
-        let chatHistory = [
-            {
-                role: 'assistant',
-                text: "Olá! Sou o seu Co-piloto de Vendas da Itambé. Analiso o portfólio de faturamento contra o catálogo em tempo real para encontrar oportunidades de venda. Experimente selecionar um cliente ou fazer upload de um CSV de faturamento!"
-            }
-        ];
 
         // Helper: auto classify family line if not explicitly mapped
         function inferFamilyLine(productName) {
@@ -665,7 +522,6 @@
 
         function openModal(modalId) {
             document.getElementById(modalId).classList.remove('hidden');
-            if (modalId === 'saleModal') populateModalSelects();
         }
 
         function closeModal(modalId) {
@@ -673,24 +529,6 @@
             if (modalId === 'importModal') {
                 document.getElementById('importErrorAlert').classList.add('hidden');
                 document.getElementById('importSuccessAlert').classList.add('hidden');
-            }
-        }
-
-        function populateModalSelects() {
-            const clientSelect = document.getElementById('modalSaleClient');
-            const prodSelect = document.getElementById('modalSaleProduct');
-
-            clientSelect.innerHTML = clients.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)} (${escapeHtml(c.id)})</option>`).join('');
-            prodSelect.innerHTML = products.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} - R$ ${p.defaultPrice.toFixed(2)}</option>`).join('');
-            clientSelect.value = selectedClientId;
-            modalUpdatePrice();
-        }
-
-        function modalUpdatePrice() {
-            const prodId = document.getElementById('modalSaleProduct').value;
-            const prod = products.find(p => p.id === prodId);
-            if (prod) {
-                document.getElementById('modalSalePrice').value = prod.defaultPrice;
             }
         }
 
@@ -1076,99 +914,6 @@
             }
         }
 
-        function handleManualSale(e) {
-            e.preventDefault();
-            const client = document.getElementById('modalSaleClient').value;
-            const product = document.getElementById('modalSaleProduct').value;
-            const price = parseFloat(document.getElementById('modalSalePrice').value);
-            const qty = parseInt(document.getElementById('modalSaleQty').value);
-            const date = document.getElementById('modalSaleDate').value;
-
-            sales.push({
-                clientId: client,
-                productId: product,
-                date: date,
-                price: price,
-                quantity: qty
-            });
-
-            closeModal('saleModal');
-            updateDashboard();
-
-            // Insert assistant update
-            appendAssistantMsg(`Registei com sucesso a venda de ${qty} CX de ${products.find(p => p.id === product).name} no valor total de ${formatBRL(price * qty)}.`);
-        }
-
-        function handleManualClient(e) {
-            e.preventDefault();
-            const sap = document.getElementById('modalClientSap').value;
-            const name = document.getElementById('modalClientName').value.toUpperCase();
-            const rede = document.getElementById('modalClientRede').value.toUpperCase();
-            const bairro = document.getElementById('modalClientBairro').value.toUpperCase();
-            const cidade = document.getElementById('modalClientCidade').value.toUpperCase();
-
-            clients.push({ id: sap, name, rede, bairro, cidade });
-            closeModal('clientModal');
-            
-            selectedClientId = sap;
-            selectedViewMode = 'client';
-            populateRedeOptions();
-            filterClients();
-            updateDashboard();
-        }
-
-        function renderChat() {
-            const viewport = document.getElementById('chatViewport');
-            viewport.innerHTML = chatHistory.map(m => `
-                <div class="max-w-[90%] rounded-2xl p-3.5 text-xs leading-relaxed ${
-                    m.role === 'user' 
-                      ? 'bg-indigo-600 text-white self-end rounded-tr-none ml-auto' 
-                      : 'bg-slate-900 text-slate-200 border border-slate-800/80 self-start rounded-tl-none whitespace-pre-wrap'
-                }">
-                    ${m.text}
-                </div>
-            `).join('');
-            viewport.scrollTop = viewport.scrollHeight;
-        }
-
-        function appendAssistantMsg(text) {
-            chatHistory.push({ role: 'assistant', text });
-            renderChat();
-        }
-
-        function triggerPresetQuery(type) {
-            const scope = getActiveScope();
-            let q = "";
-            if (type === 1) {
-                q = scope.type === 'rede'
-                    ? `Quais as 3 melhores oportunidades de portfólio para a ${scope.name}?`
-                    : `Quais as 3 melhores oportunidades de portfólio para o cliente ${scope.name} no Bairro ${scope.bairro}?`;
-            } else {
-                q = `Gere um pequeno roteiro comercial com preço de tabela para apresentar em ${scope.cidade}.`;
-            }
-            document.getElementById('chatInput').value = q;
-        }
-
-        function handleSendChat(e) {
-            e.preventDefault();
-            const input = document.getElementById('chatInput');
-            const userText = input.value.trim();
-            if (!userText) return;
-
-            chatHistory.push({ role: 'user', text: userText });
-            input.value = '';
-            renderChat();
-
-            const scope = getActiveScope();
-            
-            // Simulação de resposta rápida de IA local baseada no cliente selecionado
-            setTimeout(() => {
-                const foco = scope.type === 'rede' ? scope.rede : `Bairro ${scope.bairro}`;
-                const fallback = `🤖 **Análise Comercial de Positivação para ${scope.name}:**\n\n• **Foco em ${foco}**: Recomendo focar na reativação imediata das Bebidas Lácteas de 1L ou leites em pó.\n• **Oportunidade Principal**: Oferecer reposição de mix com o preço de tabela vigente do iogurte ou do doce de leite.\n• **Roteiro Rápido**: *"Olá! Notei que as suas últimas caixas do faturamento de ${formatDate(sales[0]?.date)} já devem ter rodado. Vamos agendar uma reposição do mix esta semana com as condições de tabela especial?"*`;
-                appendAssistantMsg(fallback);
-            }, 1000);
-        }
-
         function filterMatrix() {
             renderMatrix();
         }
@@ -1179,7 +924,6 @@
             populateFamilyFilter();
             filterClients();
             updateDashboard();
-            renderChat();
         };
     </script>
 </body>
