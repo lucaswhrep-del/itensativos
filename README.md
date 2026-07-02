@@ -71,6 +71,35 @@ Publish directory: .
 
 O arquivo `netlify.toml` ja deixa essa configuracao pronta para o Netlify.
 
+## Usar Google Sheets como base central
+
+1. Abra a planilha no Google Sheets.
+2. Garanta que a primeira aba tenha os cabecalhos usados pelo app, por exemplo:
+
+```text
+SAP;Cliente Emissor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descricao material;PRECO;Quant. CX
+```
+
+3. No Google Sheets, va em `Arquivo > Compartilhar > Publicar na Web`.
+4. Em `Link`, selecione a aba correta.
+5. Escolha o formato `Valores separados por virgula (.csv)`.
+6. Clique em `Publicar` e copie o link CSV gerado.
+7. No arquivo `index.html`, cole esse link em:
+
+```js
+const REMOTE_CSV_URL = 'COLE_AQUI_O_LINK_CSV_DO_GOOGLE_SHEETS';
+```
+
+8. Faca commit e push para o GitHub. O Netlify publicara a nova versao.
+
+Tambem e possivel testar sem alterar codigo usando:
+
+```text
+https://SEU-SITE.netlify.app/?base=LINK_CSV_DO_GOOGLE_SHEETS
+```
+
+Depois de configurado, todos que abrirem o app carregarao a mesma base central.
+
 ## Observacao
 
 O app usa Tailwind CSS e Lucide Icons via CDN. Isso simplifica o deploy estatico; em uma evolucao futura, vale migrar para um build com Tailwind CLI ou Vite.

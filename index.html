@@ -403,6 +403,10 @@
             { clientId: '5001712', productId: '600316300', date: '2026-01-21', price: 13.86, quantity: 1 }
         ];
 
+        // Cole aqui a URL CSV publicada do Google Sheets para carregar a base automaticamente.
+        // Tambem e possivel testar usando ?base=URL_DO_CSV no fim do link do app.
+        const REMOTE_CSV_URL = '';
+
         let clients = [...INITIAL_CLIENTS];
         let products = [...INITIAL_PRODUCTS];
         let sales = [...INITIAL_SALES];
@@ -769,6 +773,123 @@
             if (window.lucide) lucide.createIcons();
         }
 
+        function applyCSVText(text, sourceLabel = 'base') {
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+
+            if (lines.length < 2) {
+                throw new Error('O ficheiro CSV enviado não possui dados suficientes.');
+            }
+
+            // Automatic delimiter detector: accepts CSV (; or ,) and TSV copied/exported from Excel.
+            const delimiter = detectDelimiter(lines[0]);
+            const headers = splitDelimitedRow(lines[0], delimiter);
+            const normalizedHeaders = headers.map(normalizeHeader);
+
+            const getIdx = (matches, excludes = []) => {
+                const normalizedMatches = matches.map(normalizeHeader);
+                const normalizedExcludes = excludes.map(normalizeHeader);
+
+                const exactIdx = normalizedHeaders.findIndex(header =>
+                    normalizedMatches.includes(header) &&
+                    !normalizedExcludes.some(exclude => header.includes(exclude))
+                );
+                if (exactIdx !== -1) return exactIdx;
+
+                return normalizedHeaders.findIndex(header =>
+                    normalizedMatches.some(match => header.includes(match)) &&
+                    !normalizedExcludes.some(exclude => header.includes(exclude))
+                );
+            };
+
+            const sapIdx = getIdx(['sap', 'código emissor', 'codigo emissor', 'cod emissor']);
+            const clientIdx = getIdx(['cliente emissor', 'razão social', 'razao social', 'nome fantasia', 'cliente', 'nome']);
+            const redeIdx = getIdx(['rede', 'grupo']);
+            const bairroIdx = getIdx(['bairro', 'bairros']);
+            const cidadeIdx = getIdx(['cidade', 'municipio', 'município']);
+            const dateIdx = getIdx(['dt faturamento', 'data da ordem', 'data faturamento', 'faturamento', 'data']);
+            const typeIdx = getIdx(['tipo produto', 'tipo de produto', 'conservação', 'conservacao'], ['descrição', 'descricao', 'linha']);
+            const materialIdx = getIdx(['material', 'código material', 'codigo material', 'material id'], ['descrição', 'descricao']);
+            const lineIdx = getIdx(['descrição linha', 'descricao linha', 'linha', 'família', 'familia'], ['material', 'produto']);
+            const descIdx = getIdx(['descrição material', 'descricao material', 'descri o material', 'descrição produto', 'descricao produto', 'descri o produto', 'produto', 'item'], ['tipo produto', 'tipo de produto', 'conservação', 'conservacao']);
+            const priceIdx = getIdx(['preço', 'preco', 'pre o', 'valor', 'unitário', 'unitario']);
+            const qtyIdx = getIdx(['total', 'quant. cx', 'quant', 'quantidade', 'qtd']);
+
+            if (sapIdx === -1 || materialIdx === -1 || descIdx === -1) {
+                throw new Error('Mapeamento falhou. Certifique-se de incluir as colunas SAP, Material e Descrição material.');
+            }
+
+            const parsedClients = [];
+            const parsedProducts = [];
+            const parsedSales = [];
+
+            const seenClients = new Set();
+            const seenProducts = new Set();
+
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                const cols = splitDelimitedRow(row, delimiter);
+
+                if (cols.length < 3) continue;
+
+                const sap = cols[sapIdx] || 'SEM_SAP';
+                const clientName = cols[clientIdx] || `CLIENTE SAP ${sap}`;
+                const rede = redeIdx !== -1 ? (cols[redeIdx] || 'SEM REDE') : 'SEM REDE';
+                const bairro = bairroIdx !== -1 ? (cols[bairroIdx] || 'SEM BAIRRO') : 'SEM BAIRRO';
+                const cidade = cidadeIdx !== -1 ? (cols[cidadeIdx] || 'SEM CIDADE') : 'SEM CIDADE';
+                const rawDate = cols[dateIdx] || '2026-01-21';
+                const type = typeIdx !== -1 ? (cols[typeIdx] || 'LINHA SECA') : 'LINHA SECA';
+                const materialId = cols[materialIdx] || 'SEM_COD';
+                const productDesc = cols[descIdx] || 'Produto Não Especificado';
+                const lineDesc = lineIdx !== -1 ? cols[lineIdx] : '';
+                const price = parsePriceClean(cols[priceIdx]);
+                const quantity = parseInt(cols[qtyIdx]?.replace(/[^\d]/g, ''), 10) || 1;
+
+                let formattedDate = rawDate;
+                const dateParts = rawDate.split(/[./-]/);
+                if (dateParts.length === 3) {
+                    if (dateParts[0].length === 4) formattedDate = `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`;
+                    else if (dateParts[2].length === 4) formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                }
+
+                if (!seenClients.has(sap)) {
+                    seenClients.add(sap);
+                    parsedClients.push({ id: sap, name: clientName, rede: rede.toUpperCase(), bairro: bairro.toUpperCase(), cidade: cidade.toUpperCase() });
+                }
+
+                if (!seenProducts.has(materialId)) {
+                    seenProducts.add(materialId);
+                    parsedProducts.push({
+                        id: materialId,
+                        name: productDesc,
+                        type: type.toUpperCase(),
+                        line: (lineDesc || inferFamilyLine(productDesc)).toUpperCase(),
+                        defaultPrice: price || 10.00
+                    });
+                }
+
+                parsedSales.push({ clientId: sap, productId: materialId, date: formattedDate, price: price, quantity: quantity });
+            }
+
+            if (!parsedClients.length || !parsedProducts.length || !parsedSales.length) {
+                throw new Error('A base foi lida, mas não gerou clientes, produtos ou faturamentos válidos.');
+            }
+
+            clients = parsedClients;
+            products = parsedProducts;
+            sales = parsedSales;
+            selectedClientId = parsedClients[0].id;
+            selectedViewMode = 'client';
+            selectedRede = 'ALL';
+
+            populateRedeOptions();
+            document.getElementById('searchRede').value = 'ALL';
+            populateFamilyFilter();
+            filterClients();
+            updateDashboard();
+
+            return { clients: parsedClients.length, products: parsedProducts.length, sales: parsedSales.length, sourceLabel };
+        }
+
         function handleCSVUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -788,118 +909,12 @@
                     return;
                 }
 
-                const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
-
-                if (lines.length < 2) {
-                    showCSVFeedback('O ficheiro CSV enviado não possui dados suficientes.', true);
-                    return;
+                try {
+                    const result = applyCSVText(text, file.name);
+                    showCSVFeedback(`Sucesso! Carregados ${result.clients} clientes, ${result.products} produtos e ${result.sales} faturamentos.`, false);
+                } catch (error) {
+                    showCSVFeedback(error.message, true);
                 }
-
-                // Automatic delimiter detector: accepts CSV (; or ,) and TSV copied/exported from Excel.
-                const delimiter = detectDelimiter(lines[0]);
-                const headers = splitDelimitedRow(lines[0], delimiter);
-                const normalizedHeaders = headers.map(normalizeHeader);
-
-                const getIdx = (matches, excludes = []) => {
-                    const normalizedMatches = matches.map(normalizeHeader);
-                    const normalizedExcludes = excludes.map(normalizeHeader);
-
-                    const exactIdx = normalizedHeaders.findIndex(header =>
-                        normalizedMatches.includes(header) &&
-                        !normalizedExcludes.some(exclude => header.includes(exclude))
-                    );
-                    if (exactIdx !== -1) return exactIdx;
-
-                    return normalizedHeaders.findIndex(header =>
-                        normalizedMatches.some(match => header.includes(match)) &&
-                        !normalizedExcludes.some(exclude => header.includes(exclude))
-                    );
-                };
-
-                const sapIdx = getIdx(['sap', 'código emissor', 'codigo emissor', 'cod emissor']);
-                const clientIdx = getIdx(['cliente emissor', 'razão social', 'razao social', 'nome fantasia', 'cliente', 'nome']);
-                const redeIdx = getIdx(['rede', 'grupo']);
-                const bairroIdx = getIdx(['bairro', 'bairros']);
-                const cidadeIdx = getIdx(['cidade', 'municipio', 'município']);
-                const dateIdx = getIdx(['dt faturamento', 'data da ordem', 'data faturamento', 'faturamento', 'data']);
-                const typeIdx = getIdx(['tipo produto', 'tipo de produto', 'conservação', 'conservacao'], ['descrição', 'descricao', 'linha']);
-                const materialIdx = getIdx(['material', 'código material', 'codigo material', 'material id'], ['descrição', 'descricao']);
-                const lineIdx = getIdx(['descrição linha', 'descricao linha', 'linha', 'família', 'familia'], ['material', 'produto']);
-                const descIdx = getIdx(['descrição material', 'descricao material', 'descri o material', 'descrição produto', 'descricao produto', 'descri o produto', 'produto', 'item'], ['tipo produto', 'tipo de produto', 'conservação', 'conservacao']);
-                const priceIdx = getIdx(['preço', 'preco', 'pre o', 'valor', 'unitário', 'unitario']);
-                const qtyIdx = getIdx(['total', 'quant. cx', 'quant', 'quantidade', 'qtd']);
-
-                if (sapIdx === -1 || materialIdx === -1 || descIdx === -1) {
-                    showCSVFeedback('Mapeamento falhou. Certifique-se de incluir as colunas SAP, Material e Descrição material.', true);
-                    return;
-                }
-
-                const parsedClients = [];
-                const parsedProducts = [];
-                const parsedSales = [];
-
-                const seenClients = new Set();
-                const seenProducts = new Set();
-
-                for (let i = 1; i < lines.length; i++) {
-                    const row = lines[i];
-                    const cols = splitDelimitedRow(row, delimiter);
-
-                    if (cols.length < 3) continue;
-
-                    const sap = cols[sapIdx] || 'SEM_SAP';
-                    const clientName = cols[clientIdx] || `CLIENTE SAP ${sap}`;
-                    const rede = redeIdx !== -1 ? (cols[redeIdx] || 'SEM REDE') : 'SEM REDE';
-                    const bairro = bairroIdx !== -1 ? (cols[bairroIdx] || 'SEM BAIRRO') : 'SEM BAIRRO';
-                    const cidade = cidadeIdx !== -1 ? (cols[cidadeIdx] || 'SEM CIDADE') : 'SEM CIDADE';
-                    const rawDate = cols[dateIdx] || '2026-01-21';
-                    const type = typeIdx !== -1 ? (cols[typeIdx] || 'LINHA SECA') : 'LINHA SECA';
-                    const materialId = cols[materialIdx] || 'SEM_COD';
-                    const productDesc = cols[descIdx] || 'Produto Não Especificado';
-                    const lineDesc = lineIdx !== -1 ? cols[lineIdx] : '';
-                    const price = parsePriceClean(cols[priceIdx]);
-                    const quantity = parseInt(cols[qtyIdx]?.replace(/[^\d]/g, ''), 10) || 1;
-
-                    let formattedDate = rawDate;
-                    const dateParts = rawDate.split(/[./-]/);
-                    if (dateParts.length === 3) {
-                        if (dateParts[0].length === 4) formattedDate = `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`;
-                        else if (dateParts[2].length === 4) formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
-                    }
-
-                    if (!seenClients.has(sap)) {
-                        seenClients.add(sap);
-                        parsedClients.push({ id: sap, name: clientName, rede: rede.toUpperCase(), bairro: bairro.toUpperCase(), cidade: cidade.toUpperCase() });
-                    }
-
-                    if (!seenProducts.has(materialId)) {
-                        seenProducts.add(materialId);
-                        parsedProducts.push({
-                            id: materialId,
-                            name: productDesc,
-                            type: type.toUpperCase(),
-                            line: (lineDesc || inferFamilyLine(productDesc)).toUpperCase(),
-                            defaultPrice: price || 10.00
-                        });
-                    }
-
-                    parsedSales.push({ clientId: sap, productId: materialId, date: formattedDate, price: price, quantity: quantity });
-                }
-
-                clients = parsedClients;
-                products = parsedProducts;
-                sales = parsedSales;
-                selectedClientId = parsedClients[0].id;
-                selectedViewMode = 'client';
-                selectedRede = 'ALL';
-
-                populateRedeOptions();
-                document.getElementById('searchRede').value = 'ALL';
-                populateFamilyFilter();
-                filterClients();
-                updateDashboard();
-
-                showCSVFeedback(`Sucesso! Carregados ${parsedClients.length} clientes, ${parsedProducts.length} produtos e ${parsedSales.length} faturamentos.`, false);
             };
             reader.readAsText(file, 'utf-8');
         }
@@ -914,16 +929,44 @@
             }
         }
 
+        function getRemoteCSVUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('base') || REMOTE_CSV_URL;
+        }
+
+        async function loadRemoteBase() {
+            const remoteUrl = getRemoteCSVUrl();
+            if (!remoteUrl) return;
+
+            try {
+                const response = await fetch(remoteUrl, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const buffer = await response.arrayBuffer();
+                let text = new TextDecoder('utf-8').decode(buffer);
+                if ((text.split(/\r?\n/)[0] || '').includes('\uFFFD')) {
+                    text = new TextDecoder('windows-1252').decode(buffer);
+                }
+
+                const result = applyCSVText(text, 'base central');
+                console.info(`Base central carregada: ${result.clients} clientes, ${result.products} produtos, ${result.sales} faturamentos.`);
+            } catch (error) {
+                console.warn('Não foi possível carregar a base central. Use o botão de importação como alternativa.', error);
+                showCSVFeedback('Não foi possível carregar a base central. Confira se a planilha foi publicada como CSV.', true);
+            }
+        }
+
         function filterMatrix() {
             renderMatrix();
         }
 
-        window.onload = function() {
+        window.onload = async function() {
             if (window.lucide) lucide.createIcons();
             populateRedeOptions();
             populateFamilyFilter();
             filterClients();
             updateDashboard();
+            await loadRemoteBase();
         };
     </script>
 </body>
