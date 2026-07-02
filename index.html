@@ -380,9 +380,9 @@
               <h4 class="font-extrabold text-white mb-2 flex items-center gap-1.5 uppercase">
                 <i class="lucide-info text-indigo-400 w-4 h-4"></i> Estrutura de Importação Base (image_4370c4.png)
               </h4>
-              <p class="mb-2">A sua folha de cálculo CSV deve conter estes cabeçalhos exatos separados por ponto e vírgula (;) ou vírgula (,):</p>
+              <p class="mb-2">A sua folha deve conter estes cabeçalhos separados por TAB, ponto e vírgula (;) ou vírgula (,):</p>
               <div class="bg-slate-950 p-3 rounded font-mono text-indigo-300 overflow-x-auto whitespace-nowrap text-[10px]">
-                SAP;Cliente Emissor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descrição material;Descrição Linha;PREÇO;Total
+                SAP;Cliente Emissor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descrição material;Descrição Linha;PREÇO;Quant. CX
               </div>
             </div>
 
@@ -394,7 +394,7 @@
                 <p class="text-sm font-bold text-slate-200">Arraste ou clique para selecionar o seu arquivo CSV</p>
                 <p class="text-xs text-slate-500 mt-1">Formatos suportados: .csv</p>
               </div>
-              <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+              <input type="file" id="csvFileInput" accept=".csv,.tsv,.txt" onchange="handleCSVUpload(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
             </div>
 
             <div id="importErrorAlert" class="p-4 bg-rose-950/40 border border-rose-800 rounded-xl hidden items-start gap-3 text-xs text-rose-350">
@@ -576,6 +576,22 @@
                 .toLowerCase()
                 .replace(/[^a-z0-9]+/g, ' ')
                 .trim();
+        }
+
+        function detectDelimiter(headerLine) {
+            if (headerLine.includes('\t')) return '\t';
+            if (headerLine.includes(';')) return ';';
+            return ',';
+        }
+
+        function splitDelimitedRow(row, delimiter) {
+            const pattern = delimiter === ','
+                ? /,(?=(?:(?:[^"]*"){2})*[^"]*$)/
+                : delimiter === ';'
+                    ? /;(?=(?:(?:[^"]*"){2})*[^"]*$)/
+                    : /\t/;
+
+            return row.split(pattern).map(c => c.trim().replace(/^"|"$/g, ''));
         }
 
         // Helper: Currency and parser clean engine (clears R$ and standardizes punctuation)
@@ -911,9 +927,9 @@
                     return;
                 }
 
-                // Automatic delimiter detector
-                const delimiter = lines[0].includes(';') ? ';' : ',';
-                const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+                // Automatic delimiter detector: accepts CSV (; or ,) and TSV copied/exported from Excel.
+                const delimiter = detectDelimiter(lines[0]);
+                const headers = splitDelimitedRow(lines[0], delimiter);
                 const normalizedHeaders = headers.map(normalizeHeader);
 
                 const getIdx = (matches, excludes = []) => {
@@ -959,12 +975,7 @@
 
                 for (let i = 1; i < lines.length; i++) {
                     const row = lines[i];
-                    let cols = [];
-                    if (delimiter === ';') {
-                        cols = row.split(';').map(c => c.trim().replace(/^"|"$/g, ''));
-                    } else {
-                        cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g, ''));
-                    }
+                    const cols = splitDelimitedRow(row, delimiter);
 
                     if (cols.length < 3) continue;
 
