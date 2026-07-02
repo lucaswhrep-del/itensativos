@@ -834,15 +834,26 @@
             const matrixData = products.map(product => {
                 const productSales = clientSales.filter(s => s.productId === product.id);
                 if (productSales.length > 0) {
-                    const sorted = [...productSales].sort((a, b) => new Date(b.date) - new Date(a.date));
+                    const salesByDate = productSales.reduce((acc, sale) => {
+                        const key = sale.date || 'SEM_DATA';
+                        if (!acc[key]) {
+                            acc[key] = { date: sale.date, quantity: 0, total: 0, latestPrice: sale.price };
+                        }
+                        acc[key].quantity += sale.quantity || 0;
+                        acc[key].total += (sale.price || 0) * (sale.quantity || 0);
+                        acc[key].latestPrice = sale.price;
+                        return acc;
+                    }, {});
+                    const purchases = Object.values(salesByDate);
+                    const sorted = [...purchases].sort((a, b) => new Date(b.date) - new Date(a.date));
                     const latest = sorted[0];
                     return {
                         ...product,
                         positivado: true,
                         lastDate: latest.date,
-                        lastPrice: latest.price,
-                        lastQty: productSales.reduce((sum, s) => sum + s.quantity, 0),
-                        maxQty: Math.max(...productSales.map(s => s.quantity || 0)),
+                        lastPrice: latest.latestPrice,
+                        lastQty: latest.quantity,
+                        maxQty: Math.max(...purchases.map(p => p.quantity || 0)),
                         accumulated: productSales.reduce((sum, s) => sum + (s.price * s.quantity), 0)
                     };
                 } else {
