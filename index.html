@@ -352,7 +352,7 @@
               </h4>
               <p class="mb-2">A sua folha de cálculo CSV deve conter estes cabeçalhos exatos separados por ponto e vírgula (;) ou vírgula (,):</p>
               <div class="bg-slate-950 p-3 rounded font-mono text-indigo-300 overflow-x-auto whitespace-nowrap text-[10px]">
-                SAP;Cliente Emissor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descrição material;PREÇO;Total
+                SAP;Cliente Emissor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descrição material;Descrição Linha;PREÇO;Total
               </div>
             </div>
 
@@ -534,6 +534,16 @@
             if (upper.includes('MANTEIGA')) return 'MANTEIGA';
             if (upper.includes('QUEIJO')) return 'QUEIJO';
             return 'LACTICINIOS';
+        }
+
+        function normalizeHeader(value) {
+            return (value || '')
+                .toString()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
         }
 
         // Helper: Currency and parser clean engine (clears R$ and standardizes punctuation)
@@ -831,19 +841,35 @@
                 // Automatic delimiter detector
                 const delimiter = lines[0].includes(';') ? ';' : ',';
                 const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+                const normalizedHeaders = headers.map(normalizeHeader);
 
-                const getIdx = (matches) => headers.findIndex(h => matches.some(m => h.toLowerCase().includes(m.toLowerCase())));
+                const getIdx = (matches, excludes = []) => {
+                    const normalizedMatches = matches.map(normalizeHeader);
+                    const normalizedExcludes = excludes.map(normalizeHeader);
 
-                const sapIdx = getIdx(['sap', 'código emissor', 'cod']);
-                const clientIdx = getIdx(['cliente emissor', 'cliente', 'nome', 'razão', 'razao']);
+                    const exactIdx = normalizedHeaders.findIndex(header =>
+                        normalizedMatches.includes(header) &&
+                        !normalizedExcludes.some(exclude => header.includes(exclude))
+                    );
+                    if (exactIdx !== -1) return exactIdx;
+
+                    return normalizedHeaders.findIndex(header =>
+                        normalizedMatches.some(match => header.includes(match)) &&
+                        !normalizedExcludes.some(exclude => header.includes(exclude))
+                    );
+                };
+
+                const sapIdx = getIdx(['sap', 'código emissor', 'codigo emissor', 'cod emissor']);
+                const clientIdx = getIdx(['cliente emissor', 'razão social', 'razao social', 'nome fantasia', 'cliente', 'nome']);
                 const redeIdx = getIdx(['rede', 'grupo']);
                 const bairroIdx = getIdx(['bairro', 'bairros']);
                 const cidadeIdx = getIdx(['cidade', 'municipio', 'município']);
-                const dateIdx = getIdx(['dt faturamento', 'data da ordem', 'data', 'faturamento']);
-                const typeIdx = getIdx(['tipo produto', 'tipo', 'conservação']);
-                const materialIdx = getIdx(['material', 'código', 'codigo', 'material id']);
-                const descIdx = getIdx(['descrição material', 'descricao material', 'descrição', 'descricao', 'produto']);
-                const priceIdx = getIdx(['preço', 'preco', 'valor', 'unitário']);
+                const dateIdx = getIdx(['dt faturamento', 'data da ordem', 'data faturamento', 'faturamento', 'data']);
+                const typeIdx = getIdx(['tipo produto', 'tipo de produto', 'conservação', 'conservacao'], ['descrição', 'descricao', 'linha']);
+                const materialIdx = getIdx(['material', 'código material', 'codigo material', 'material id'], ['descrição', 'descricao']);
+                const lineIdx = getIdx(['descrição linha', 'descricao linha', 'linha', 'família', 'familia'], ['material', 'produto']);
+                const descIdx = getIdx(['descrição material', 'descricao material', 'descrição produto', 'descricao produto', 'produto', 'item'], ['tipo produto', 'tipo de produto', 'conservação', 'conservacao']);
+                const priceIdx = getIdx(['preço', 'preco', 'valor', 'unitário', 'unitario']);
                 const qtyIdx = getIdx(['total', 'quant. cx', 'quant', 'quantidade', 'qtd']);
 
                 if (sapIdx === -1 || materialIdx === -1 || descIdx === -1) {
@@ -875,9 +901,10 @@
                     const bairro = bairroIdx !== -1 ? (cols[bairroIdx] || 'SEM BAIRRO') : 'SEM BAIRRO';
                     const cidade = cidadeIdx !== -1 ? (cols[cidadeIdx] || 'SEM CIDADE') : 'SEM CIDADE';
                     const rawDate = cols[dateIdx] || '2026-01-21';
-                    const type = cols[typeIdx] || 'LINHA SECA';
+                    const type = typeIdx !== -1 ? (cols[typeIdx] || 'LINHA SECA') : 'LINHA SECA';
                     const materialId = cols[materialIdx] || 'SEM_COD';
                     const productDesc = cols[descIdx] || 'Produto Não Especificado';
+                    const lineDesc = lineIdx !== -1 ? cols[lineIdx] : '';
                     const price = parsePriceClean(cols[priceIdx]);
                     const quantity = parseInt(cols[qtyIdx]?.replace(/[^\d]/g, ''), 10) || 1;
 
@@ -899,7 +926,7 @@
                             id: materialId,
                             name: productDesc,
                             type: type.toUpperCase(),
-                            line: inferFamilyLine(productDesc),
+                            line: (lineDesc || inferFamilyLine(productDesc)).toUpperCase(),
                             defaultPrice: price || 10.00
                         });
                     }
