@@ -918,8 +918,17 @@
             document.getElementById('importSuccessAlert').classList.add('hidden');
 
             const reader = new FileReader();
+            let retriedWithWindows1252 = false;
             reader.onload = function(evt) {
                 const text = evt.target.result;
+                const headerLine = text.split(/\r?\n/)[0] || '';
+
+                if (!retriedWithWindows1252 && headerLine.includes('\uFFFD')) {
+                    retriedWithWindows1252 = true;
+                    reader.readAsText(file, 'windows-1252');
+                    return;
+                }
+
                 const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
 
                 if (lines.length < 2) {
@@ -957,8 +966,8 @@
                 const typeIdx = getIdx(['tipo produto', 'tipo de produto', 'conservação', 'conservacao'], ['descrição', 'descricao', 'linha']);
                 const materialIdx = getIdx(['material', 'código material', 'codigo material', 'material id'], ['descrição', 'descricao']);
                 const lineIdx = getIdx(['descrição linha', 'descricao linha', 'linha', 'família', 'familia'], ['material', 'produto']);
-                const descIdx = getIdx(['descrição material', 'descricao material', 'descrição produto', 'descricao produto', 'produto', 'item'], ['tipo produto', 'tipo de produto', 'conservação', 'conservacao']);
-                const priceIdx = getIdx(['preço', 'preco', 'valor', 'unitário', 'unitario']);
+                const descIdx = getIdx(['descrição material', 'descricao material', 'descri o material', 'descrição produto', 'descricao produto', 'descri o produto', 'produto', 'item'], ['tipo produto', 'tipo de produto', 'conservação', 'conservacao']);
+                const priceIdx = getIdx(['preço', 'preco', 'pre o', 'valor', 'unitário', 'unitario']);
                 const qtyIdx = getIdx(['total', 'quant. cx', 'quant', 'quantidade', 'qtd']);
 
                 if (sapIdx === -1 || materialIdx === -1 || descIdx === -1) {
@@ -1033,7 +1042,7 @@
 
                 showCSVFeedback(`Sucesso! Carregados ${parsedClients.length} clientes, ${parsedProducts.length} produtos e ${parsedSales.length} faturamentos.`, false);
             };
-            reader.readAsText(file);
+            reader.readAsText(file, 'utf-8');
         }
 
         function showCSVFeedback(text, isError) {
