@@ -939,7 +939,11 @@
             if (!remoteUrl) return;
 
             try {
-                const response = await fetch(remoteUrl, { cache: 'no-store' });
+                const cacheBuster = `_ts=${Date.now()}`;
+                const remoteUrlWithCacheBuster = remoteUrl.includes('?')
+                    ? `${remoteUrl}&${cacheBuster}`
+                    : `${remoteUrl}?${cacheBuster}`;
+                const response = await fetch(remoteUrlWithCacheBuster, { cache: 'no-store' });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                 const buffer = await response.arrayBuffer();
