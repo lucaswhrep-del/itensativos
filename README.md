@@ -77,8 +77,10 @@ O arquivo `netlify.toml` ja deixa essa configuracao pronta para o Netlify.
 2. Garanta que a primeira aba tenha os cabecalhos usados pelo app, por exemplo:
 
 ```text
-SAP;Cliente Emissor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descricao material;PRECO;Quant. CX
+SAP;Cliente Emissor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descricao material;Descricao Linha;Situacao Item;PRECO;Quant. CX
 ```
+
+A coluna `Situacao Item` e opcional. Quando existir, use `Ativo` ou `Inativo`; quando nao existir, o app considera o item como ativo.
 
 3. No Google Sheets, va em `Arquivo > Compartilhar > Publicar na Web`.
 4. Em `Link`, selecione a aba correta.
