@@ -102,6 +102,17 @@ https://SEU-SITE.netlify.app/?base=LINK_CSV_DO_GOOGLE_SHEETS
 
 Depois de configurado, todos que abrirem o app carregarao a mesma base central.
 
+## Cruzar clientes por produto
+
+Na area de pesquisa da carteira, use `Selecionar Produto(s) para Consulta de Compra` para adicionar um ou mais itens do portfolio. Em `Resultado da Compra`, escolha:
+
+- `Com todos`: clientes que compraram todos os itens selecionados.
+- `Com algum`: clientes que compraram pelo menos um dos itens.
+- `Falta algum`: clientes que ainda nao compraram um ou mais itens selecionados.
+- `Sem compra`: clientes que nao compraram nenhum dos itens selecionados.
+
+Os cards dos clientes mostram a contagem `comprados/selecionados` e sinalizam os codigos com compra ou sem compra.
+
 ## Observacao
 
 O app usa Tailwind CSS e Lucide Icons via CDN. Isso simplifica o deploy estatico; em uma evolucao futura, vale migrar para um build com Tailwind CLI ou Vite.

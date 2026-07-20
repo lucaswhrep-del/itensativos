@@ -225,6 +225,36 @@
                 </div>
             </div>
 
+            <div class="mt-4 pt-4 border-t border-slate-900 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Selecionar Produto(s) para Consulta de Compra</label>
+                    <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
+                        <div class="relative">
+                            <i class="lucide-search w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            <input type="text" id="productClientSearch" oninput="populateProductClientPicker()" placeholder="Buscar código ou descrição..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <select id="productClientPicker" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                            <option value="">Selecione um produto</option>
+                        </select>
+                        <button onclick="addSelectedProductFilter()" class="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md text-xs">
+                            <i class="lucide-plus w-4 h-4"></i> Adicionar
+                        </button>
+                    </div>
+                    <div id="selectedProductChips" class="flex flex-wrap gap-2 mt-3"></div>
+                </div>
+
+                <div class="min-w-[210px]">
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Resultado da Compra</label>
+                    <select id="clientProductPurchaseMode" onchange="filterClients()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        <option value="ALL">Todos os clientes</option>
+                        <option value="ALL_BOUGHT">Com todos</option>
+                        <option value="ANY_BOUGHT">Com algum</option>
+                        <option value="MISSING_ANY">Falta algum</option>
+                        <option value="NONE_BOUGHT">Sem compra</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- RESULTADOS CLIENTES -->
             <div class="mt-4 pt-3 border-t border-slate-900">
                 <div class="flex items-center justify-between mb-2">
@@ -517,6 +547,7 @@
         let selectedViewMode = 'client';
         let selectedRede = 'ALL';
         let activeStatusFilter = 'ALL';
+        let selectedProductFilterIds = [];
 
         // Helper: auto classify family line if not explicitly mapped
         function inferFamilyLine(productName) {
@@ -668,6 +699,125 @@
                 Array.from(families).map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
         }
 
+        function getMatrixFilterValues() {
+            return {
+                type: document.getElementById('filterType')?.value || 'ALL',
+                line: document.getElementById('filterLine')?.value || 'ALL',
+                itemStatus: document.getElementById('filterItemStatus')?.value || 'ALL'
+            };
+        }
+
+        function getProductsAllowedByMatrixFilters() {
+            const filters = getMatrixFilterValues();
+            return products.filter(product =>
+                (filters.type === 'ALL' || product.type === filters.type) &&
+                (filters.line === 'ALL' || product.line === filters.line) &&
+                (filters.itemStatus === 'ALL' || (product.itemStatus || 'ATIVO') === filters.itemStatus)
+            );
+        }
+
+        function getSelectedProductFilters() {
+            const selected = new Set(selectedProductFilterIds);
+            return products.filter(product => selected.has(product.id));
+        }
+
+        function populateProductClientPicker() {
+            const select = document.getElementById('productClientPicker');
+            if (!select) return;
+
+            const searchVal = (document.getElementById('productClientSearch')?.value || '').toLowerCase();
+            const selected = new Set(selectedProductFilterIds);
+            const options = getProductsAllowedByMatrixFilters()
+                .filter(product => !selected.has(product.id))
+                .filter(product => !searchVal ||
+                    product.id.toLowerCase().includes(searchVal) ||
+                    product.name.toLowerCase().includes(searchVal)
+                )
+                .sort((a, b) =>
+                    a.type.localeCompare(b.type, 'pt-BR') ||
+                    a.line.localeCompare(b.line, 'pt-BR') ||
+                    a.name.localeCompare(b.name, 'pt-BR')
+                )
+                .slice(0, 250);
+
+            select.innerHTML = '<option value="">Selecione um produto</option>' +
+                options.map(product => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.id)} - ${escapeHtml(product.name)}</option>`).join('');
+        }
+
+        function renderSelectedProductChips() {
+            const container = document.getElementById('selectedProductChips');
+            if (!container) return;
+
+            const selectedProducts = getSelectedProductFilters();
+            if (!selectedProducts.length) {
+                container.innerHTML = '<span class="text-[11px] text-slate-500">Nenhum produto selecionado para cruzamento de clientes.</span>';
+                return;
+            }
+
+            container.innerHTML = selectedProducts.map(product => `
+                <span class="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-full pl-3 pr-1.5 py-1 text-[11px] font-bold max-w-full">
+                    <span class="truncate max-w-[260px] notranslate" translate="no">#${escapeHtml(product.id)} • ${escapeHtml(product.name)}</span>
+                    <button onclick="removeSelectedProductFilter('${escapeHtml(product.id)}')" class="w-5 h-5 rounded-full bg-white/80 text-slate-500 hover:text-rose-500 flex items-center justify-center border border-slate-800" title="Remover produto">
+                        <i class="lucide-x w-3 h-3"></i>
+                    </button>
+                </span>
+            `).join('');
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function addSelectedProductFilter() {
+            const select = document.getElementById('productClientPicker');
+            const productId = select?.value;
+            if (!productId || selectedProductFilterIds.includes(productId)) return;
+
+            selectedProductFilterIds.push(productId);
+            if (select) select.value = '';
+            renderSelectedProductChips();
+            populateProductClientPicker();
+            filterClients();
+        }
+
+        function removeSelectedProductFilter(productId) {
+            selectedProductFilterIds = selectedProductFilterIds.filter(id => id !== productId);
+            renderSelectedProductChips();
+            populateProductClientPicker();
+            filterClients();
+        }
+
+        function clearMissingSelectedProductFilters() {
+            const availableIds = new Set(products.map(product => product.id));
+            selectedProductFilterIds = selectedProductFilterIds.filter(id => availableIds.has(id));
+        }
+
+        function getClientProductCoverage(clientId) {
+            const selectedProducts = getSelectedProductFilters();
+            const clientProductIds = new Set(sales.filter(s => s.clientId === clientId).map(s => s.productId));
+            const bought = selectedProducts.filter(product => clientProductIds.has(product.id));
+            const missing = selectedProducts.filter(product => !clientProductIds.has(product.id));
+
+            return {
+                total: selectedProducts.length,
+                boughtCount: bought.length,
+                missingCount: missing.length,
+                bought,
+                missing
+            };
+        }
+
+        function clientMatchesProductPurchaseMode(clientId) {
+            if (!selectedProductFilterIds.length) return true;
+            const mode = document.getElementById('clientProductPurchaseMode')?.value || 'ALL';
+            const coverage = getClientProductCoverage(clientId);
+
+            if (mode === 'ALL') return true;
+            if (mode === 'ALL_BOUGHT') return coverage.total > 0 && coverage.boughtCount === coverage.total;
+            if (mode === 'ANY_BOUGHT') return coverage.boughtCount > 0;
+            if (mode === 'MISSING_ANY') return coverage.missingCount > 0;
+            if (mode === 'NONE_BOUGHT') return coverage.boughtCount === 0;
+            return true;
+        }
+
         function filterClients() {
             const sapVal = document.getElementById('searchSap').value.toLowerCase();
             const nameVal = document.getElementById('searchClientName').value.toLowerCase();
@@ -677,7 +827,8 @@
                 const matchSap = c.id.toLowerCase().includes(sapVal);
                 const matchName = c.name.toLowerCase().includes(nameVal);
                 const matchRede = redeVal === 'ALL' || c.rede === redeVal;
-                return matchSap && matchName && matchRede;
+                const matchProducts = clientMatchesProductPurchaseMode(c.id);
+                return matchSap && matchName && matchRede && matchProducts;
             });
 
             renderClientsGrid(matches);
@@ -707,6 +858,29 @@
                 const clientSales = sales.filter(s => s.clientId === c.id);
                 const uniqueProducts = new Set(clientSales.map(s => s.productId)).size;
                 const rate = products.length > 0 ? (uniqueProducts / products.length) * 100 : 0;
+                const coverage = getClientProductCoverage(c.id);
+                const coverageClass = !coverage.total
+                    ? 'text-slate-500 bg-slate-900 border-slate-800'
+                    : coverage.boughtCount === coverage.total
+                        ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+                        : coverage.boughtCount === 0
+                            ? 'text-rose-500 bg-rose-500/10 border-rose-500/20'
+                            : 'text-amber-600 bg-amber-500/10 border-amber-500/20';
+                const productSignal = coverage.total ? `
+                      <div class="rounded-lg border border-slate-800 bg-slate-950/40 px-2.5 py-2 text-[10px]">
+                        <div class="flex items-center justify-between gap-2">
+                          <span class="font-bold text-slate-500 uppercase">Produtos selecionados</span>
+                          <span class="font-black px-2 py-0.5 rounded-full border ${coverageClass}">
+                            ${coverage.boughtCount}/${coverage.total} com compra
+                          </span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                          ${coverage.bought.slice(0, 3).map(product => `<span class="inline-flex items-center gap-1 text-emerald-500 font-bold notranslate" translate="no"><i class="lucide-check w-3 h-3"></i>${escapeHtml(product.id)}</span>`).join('')}
+                          ${coverage.missing.slice(0, 3).map(product => `<span class="inline-flex items-center gap-1 text-rose-500 font-bold notranslate" translate="no"><i class="lucide-x w-3 h-3"></i>${escapeHtml(product.id)}</span>`).join('')}
+                          ${coverage.total > 6 ? `<span class="text-slate-500 font-bold">+${coverage.total - 6}</span>` : ''}
+                        </div>
+                      </div>
+                ` : '';
 
                 return `
                     <button onclick="selectClient('${escapeHtml(c.id)}')" class="p-3 rounded-xl border text-left transition-all flex flex-col gap-1.5 ${
@@ -724,9 +898,12 @@
                         <span class="truncate max-w-[130px] notranslate" translate="no">📍 ${escapeHtml(c.bairro)}, ${escapeHtml(c.cidade)}</span>
                         <span class="font-bold text-indigo-400">${rate.toFixed(0)}% (${uniqueProducts})</span>
                       </div>
+                      ${productSignal}
                     </button>
                 `;
             }).join('');
+
+            if (window.lucide) lucide.createIcons();
         }
 
         function selectClient(clientId) {
@@ -1016,6 +1193,9 @@
             populateRedeOptions();
             document.getElementById('searchRede').value = 'ALL';
             populateFamilyFilter();
+            clearMissingSelectedProductFilters();
+            populateProductClientPicker();
+            renderSelectedProductChips();
             filterClients();
             updateDashboard();
 
@@ -1094,12 +1274,15 @@
 
         function filterMatrix() {
             renderMatrix();
+            populateProductClientPicker();
         }
 
         window.onload = async function() {
             if (window.lucide) lucide.createIcons();
             populateRedeOptions();
             populateFamilyFilter();
+            populateProductClientPicker();
+            renderSelectedProductChips();
             filterClients();
             updateDashboard();
             await loadRemoteBase();
