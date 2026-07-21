@@ -197,7 +197,7 @@
                 </h2>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                     <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Pesquisar por Código SAP</label>
                     <div class="relative">
@@ -220,6 +220,16 @@
                         <i class="lucide-layers w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
                         <select id="searchRede" onchange="handleRedeFilterChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
                             <option value="ALL">Todas as Redes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Filtrar por Vendedor</label>
+                    <div class="relative">
+                        <i class="lucide-user-round w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <select id="searchSeller" onchange="handleSellerFilterChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                            <option value="ALL">Todos os Vendedores</option>
                         </select>
                     </div>
                 </div>
@@ -284,6 +294,7 @@
               <div class="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-400 mt-2">
                 <span id="activeClientSap" class="bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800 text-indigo-300 font-mono">SAP: -</span>
                 <span id="activeClientRede" class="bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800 text-slate-300 uppercase">Rede: -</span>
+                <span id="activeClientSeller" class="bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800 text-slate-300 uppercase">Vendedor: -</span>
                 <span class="flex items-center gap-1">
                   <i class="lucide-map-pin w-3.5 h-3.5 text-rose-500"></i> Bairro: <strong id="activeClientBairro">-</strong>
                 </span>
@@ -467,7 +478,7 @@
               </h4>
               <p class="mb-2">A sua folha deve conter estes cabeçalhos separados por TAB, ponto e vírgula (;) ou vírgula (,):</p>
               <div class="bg-slate-950 p-3 rounded font-mono text-indigo-300 overflow-x-auto whitespace-nowrap text-[10px]">
-                SAP;Cliente Emissor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descrição material;Descrição Linha;Situação Item;PREÇO;Quant. CX
+                SAP;Cliente Emissor;Vendedor;REDE;Bairro;CIDADE;Dt Faturamento;Tipo Produto;Material;Descrição material;Descrição Linha;Situação Item;PREÇO;Quant. CX
               </div>
             </div>
 
@@ -510,10 +521,10 @@
     <script>
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
-            { id: '5001712', name: 'COEMDIBRA COOP CONS EMP GR M D B LT', rede: 'SEM REDE', bairro: 'JABOTI', cidade: 'ITAITINGA' },
-            { id: '5007016', name: 'MERCADINHO BELEM LTDA', rede: 'REDE MINAS', bairro: 'Industrial', cidade: 'Contagem' },
-            { id: '5007087', name: 'COMPANHIA BRASILEIRA DE DISTRIBUICA', rede: 'GPA', bairro: 'Cerqueira César', cidade: 'São Paulo' },
-            { id: '5007179', name: 'DIST DE ALIM ALBUQUERQUE LTDA', rede: 'SEM REDE', bairro: 'Filadélfia', cidade: 'Betim' }
+            { id: '5001712', name: 'COEMDIBRA COOP CONS EMP GR M D B LT', rede: 'SEM REDE', bairro: 'JABOTI', cidade: 'ITAITINGA', seller: 'SEM VENDEDOR' },
+            { id: '5007016', name: 'MERCADINHO BELEM LTDA', rede: 'REDE MINAS', bairro: 'Industrial', cidade: 'Contagem', seller: 'SEM VENDEDOR' },
+            { id: '5007087', name: 'COMPANHIA BRASILEIRA DE DISTRIBUICA', rede: 'GPA', bairro: 'Cerqueira César', cidade: 'São Paulo', seller: 'SEM VENDEDOR' },
+            { id: '5007179', name: 'DIST DE ALIM ALBUQUERQUE LTDA', rede: 'SEM REDE', bairro: 'Filadélfia', cidade: 'Betim', seller: 'SEM VENDEDOR' }
         ];
 
         const INITIAL_PRODUCTS = [
@@ -546,6 +557,7 @@
         let selectedClientId = '5001712'; // Default
         let selectedViewMode = 'client';
         let selectedRede = 'ALL';
+        let selectedSeller = 'ALL';
         let activeStatusFilter = 'ALL';
         let selectedProductFilterIds = [];
 
@@ -646,17 +658,24 @@
         }
 
         function getActiveScope() {
-            if (selectedViewMode === 'rede' && selectedRede !== 'ALL') {
-                const redeClients = clients.filter(c => (c.rede || 'SEM REDE') === selectedRede);
+            if ((selectedViewMode === 'portfolio' || selectedViewMode === 'rede') && (selectedRede !== 'ALL' || selectedSeller !== 'ALL')) {
+                const scopeClients = clients.filter(c =>
+                    (selectedRede === 'ALL' || (c.rede || 'SEM REDE') === selectedRede) &&
+                    (selectedSeller === 'ALL' || (c.seller || 'SEM VENDEDOR') === selectedSeller)
+                );
+                const scopeParts = [];
+                if (selectedSeller !== 'ALL') scopeParts.push(`Vendedor: ${selectedSeller}`);
+                if (selectedRede !== 'ALL') scopeParts.push(`Rede: ${selectedRede}`);
                 return {
-                    type: 'rede',
-                    name: `Rede: ${selectedRede}`,
-                    rede: selectedRede,
-                    clients: redeClients,
-                    clientIds: new Set(redeClients.map(c => c.id)),
-                    metaSap: `${redeClients.length} lojas`,
+                    type: 'portfolio',
+                    name: scopeParts.join(' • ') || 'Carteira filtrada',
+                    rede: selectedRede !== 'ALL' ? selectedRede : 'Todas',
+                    seller: selectedSeller !== 'ALL' ? selectedSeller : 'Todos',
+                    clients: scopeClients,
+                    clientIds: new Set(scopeClients.map(c => c.id)),
+                    metaSap: `${scopeClients.length} clientes`,
                     bairro: 'Todas',
-                    cidade: `${new Set(redeClients.map(c => c.cidade).filter(Boolean)).size || 0} cidades`
+                    cidade: `${new Set(scopeClients.map(c => c.cidade).filter(Boolean)).size || 0} cidades`
                 };
             }
 
@@ -665,6 +684,7 @@
                 type: 'client',
                 name: active?.name || 'Selecione um cliente acima',
                 rede: active?.rede || 'SEM REDE',
+                seller: active?.seller || 'SEM VENDEDOR',
                 clients: active ? [active] : [],
                 clientIds: new Set(active ? [active.id] : []),
                 metaSap: active ? `SAP: ${active.id}` : 'SAP: -',
@@ -690,6 +710,17 @@
             const redes = new Set(clients.map(c => c.rede || 'SEM REDE'));
             select.innerHTML = '<option value="ALL">Todas as Redes</option>' + 
                 Array.from(redes).map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+        }
+
+        function populateSellerOptions() {
+            const select = document.getElementById('searchSeller');
+            if (!select) return;
+            const sellers = new Set(clients.map(c => c.seller || 'SEM VENDEDOR'));
+            select.innerHTML = '<option value="ALL">Todos os Vendedores</option>' +
+                Array.from(sellers)
+                    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+                    .map(seller => `<option value="${escapeHtml(seller)}">${escapeHtml(seller)}</option>`)
+                    .join('');
         }
 
         function populateFamilyFilter() {
@@ -822,13 +853,15 @@
             const sapVal = document.getElementById('searchSap').value.toLowerCase();
             const nameVal = document.getElementById('searchClientName').value.toLowerCase();
             const redeVal = document.getElementById('searchRede').value;
+            const sellerVal = document.getElementById('searchSeller').value;
 
             const matches = clients.filter(c => {
                 const matchSap = c.id.toLowerCase().includes(sapVal);
                 const matchName = c.name.toLowerCase().includes(nameVal);
                 const matchRede = redeVal === 'ALL' || c.rede === redeVal;
+                const matchSeller = sellerVal === 'ALL' || (c.seller || 'SEM VENDEDOR') === sellerVal;
                 const matchProducts = clientMatchesProductPurchaseMode(c.id);
-                return matchSap && matchName && matchRede && matchProducts;
+                return matchSap && matchName && matchRede && matchSeller && matchProducts;
             });
 
             renderClientsGrid(matches);
@@ -836,7 +869,14 @@
 
         function handleRedeFilterChange() {
             selectedRede = document.getElementById('searchRede').value;
-            selectedViewMode = selectedRede === 'ALL' ? 'client' : 'rede';
+            selectedViewMode = (selectedRede === 'ALL' && selectedSeller === 'ALL') ? 'client' : 'portfolio';
+            filterClients();
+            updateDashboard();
+        }
+
+        function handleSellerFilterChange() {
+            selectedSeller = document.getElementById('searchSeller').value;
+            selectedViewMode = (selectedRede === 'ALL' && selectedSeller === 'ALL') ? 'client' : 'portfolio';
             filterClients();
             updateDashboard();
         }
@@ -893,6 +933,9 @@
                         <h4 class="text-xs font-bold text-slate-100 truncate mt-0.5 notranslate" translate="no" title="${escapeHtml(c.name)}">
                           ${escapeHtml(c.name)}
                         </h4>
+                        <p class="text-[10px] text-slate-500 truncate mt-1 notranslate" translate="no">
+                          Vendedor: <strong>${escapeHtml(c.seller || 'SEM VENDEDOR')}</strong>
+                        </p>
                       </div>
                       <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60 w-full">
                         <span class="truncate max-w-[130px] notranslate" translate="no">📍 ${escapeHtml(c.bairro)}, ${escapeHtml(c.cidade)}</span>
@@ -915,12 +958,29 @@
 
         function updateDashboard() {
             const scope = getActiveScope();
-            if (!scope.clients.length) return;
+            if (!scope.clients.length) {
+                document.getElementById('activeClientName').innerText = 'Nenhum cliente encontrado para os filtros atuais';
+                document.getElementById('activeClientSap').innerText = 'Clientes: 0';
+                document.getElementById('activeClientRede').innerText = `Rede: ${selectedRede === 'ALL' ? 'Todas' : selectedRede}`;
+                document.getElementById('activeClientSeller').innerText = `Vendedor: ${selectedSeller === 'ALL' ? 'Todos' : selectedSeller}`;
+                document.getElementById('activeClientBairro').innerText = '-';
+                document.getElementById('activeClientCidade').innerText = '-';
+                document.getElementById('percentText').innerText = '0%';
+                document.getElementById('mixCountText').innerText = `0 de ${products.length} Itens Faturados`;
+                document.getElementById('circleProgress').style.strokeDashoffset = 150.7;
+                document.getElementById('cardPositivados').innerText = '0';
+                document.getElementById('cardNaoPositivados').innerText = products.length;
+                document.getElementById('cardFaturado').innerText = formatBRL(0);
+                document.getElementById('cardFamilias').innerText = '0';
+                renderMatrix();
+                return;
+            }
 
             document.getElementById('activeClientName').innerText = scope.name;
             document.getElementById('activeClientName').setAttribute('translate', 'no');
             document.getElementById('activeClientSap').innerText = scope.metaSap;
             document.getElementById('activeClientRede').innerText = `Rede: ${scope.rede || 'SEM REDE'}`;
+            document.getElementById('activeClientSeller').innerText = `Vendedor: ${scope.seller || 'SEM VENDEDOR'}`;
             document.getElementById('activeClientBairro').innerText = scope.bairro;
             document.getElementById('activeClientCidade').innerText = scope.cidade;
 
@@ -1109,6 +1169,7 @@
 
             const sapIdx = getIdx(['sap', 'código emissor', 'codigo emissor', 'cod emissor']);
             const clientIdx = getIdx(['cliente emissor', 'razão social', 'razao social', 'nome fantasia', 'cliente', 'nome']);
+            const sellerIdx = getIdx(['vendedor', 'representante', 'consultor', 'supervisor', 'rca', 'executivo', 'carteira', 'responsavel', 'responsável']);
             const redeIdx = getIdx(['rede', 'grupo']);
             const bairroIdx = getIdx(['bairro', 'bairros']);
             const cidadeIdx = getIdx(['cidade', 'municipio', 'município']);
@@ -1140,6 +1201,7 @@
 
                 const sap = cols[sapIdx] || 'SEM_SAP';
                 const clientName = cols[clientIdx] || `CLIENTE SAP ${sap}`;
+                const seller = sellerIdx !== -1 ? (cols[sellerIdx] || 'SEM VENDEDOR') : 'SEM VENDEDOR';
                 const rede = redeIdx !== -1 ? (cols[redeIdx] || 'SEM REDE') : 'SEM REDE';
                 const bairro = bairroIdx !== -1 ? (cols[bairroIdx] || 'SEM BAIRRO') : 'SEM BAIRRO';
                 const cidade = cidadeIdx !== -1 ? (cols[cidadeIdx] || 'SEM CIDADE') : 'SEM CIDADE';
@@ -1161,7 +1223,14 @@
 
                 if (!seenClients.has(sap)) {
                     seenClients.add(sap);
-                    parsedClients.push({ id: sap, name: clientName, rede: rede.toUpperCase(), bairro: bairro.toUpperCase(), cidade: cidade.toUpperCase() });
+                    parsedClients.push({
+                        id: sap,
+                        name: clientName,
+                        seller: seller.toUpperCase(),
+                        rede: rede.toUpperCase(),
+                        bairro: bairro.toUpperCase(),
+                        cidade: cidade.toUpperCase()
+                    });
                 }
 
                 if (!seenProducts.has(materialId)) {
@@ -1189,9 +1258,12 @@
             selectedClientId = parsedClients[0].id;
             selectedViewMode = 'client';
             selectedRede = 'ALL';
+            selectedSeller = 'ALL';
 
             populateRedeOptions();
             document.getElementById('searchRede').value = 'ALL';
+            populateSellerOptions();
+            document.getElementById('searchSeller').value = 'ALL';
             populateFamilyFilter();
             clearMissingSelectedProductFilters();
             populateProductClientPicker();
@@ -1280,6 +1352,7 @@
         window.onload = async function() {
             if (window.lucide) lucide.createIcons();
             populateRedeOptions();
+            populateSellerOptions();
             populateFamilyFilter();
             populateProductClientPicker();
             renderSelectedProductChips();
