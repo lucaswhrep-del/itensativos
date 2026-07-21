@@ -114,6 +114,16 @@ Na area de pesquisa da carteira, use `Selecionar Produto(s) para Consulta de Com
 
 Os cards dos clientes mostram a contagem `comprados/selecionados` e sinalizam os codigos com compra ou sem compra.
 
+## Filtrar por mes/ano e exportar Excel
+
+Na area de pesquisa da carteira, use `Filtrar por Mes` e `Filtrar por Ano` para analisar apenas o periodo desejado. O filtro afeta os indicadores, a lista de clientes, a consulta por produtos e a matriz de positivacao.
+
+O botao `Exportar Excel` baixa um arquivo `.xls` com:
+
+- resumo dos filtros usados;
+- clientes encontrados na pesquisa atual;
+- matriz de produtos conforme os filtros ativos.
+
 ## Observacao
 
 O app usa Tailwind CSS e Lucide Icons via CDN. Isso simplifica o deploy estatico; em uma evolucao futura, vale migrar para um build com Tailwind CLI ou Vite.

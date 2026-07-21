@@ -235,6 +235,38 @@
                 </div>
             </div>
 
+            <div class="mt-4 pt-4 border-t border-slate-900 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Filtrar por Mês</label>
+                    <select id="periodMonth" onchange="handlePeriodFilterChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        <option value="ALL">Todos os meses</option>
+                        <option value="01">Janeiro</option>
+                        <option value="02">Fevereiro</option>
+                        <option value="03">Março</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Maio</option>
+                        <option value="06">Junho</option>
+                        <option value="07">Julho</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Filtrar por Ano</label>
+                    <select id="periodYear" onchange="handlePeriodFilterChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        <option value="ALL">Todos os anos</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button onclick="exportCurrentAnalysisToExcel()" class="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md text-xs">
+                        <i class="lucide-download w-4 h-4"></i> Exportar Excel
+                    </button>
+                </div>
+            </div>
+
             <div class="mt-4 pt-4 border-t border-slate-900 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-3">
                 <div>
                     <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Selecionar Produto(s) para Consulta de Compra</label>
@@ -561,6 +593,21 @@
         let activeStatusFilter = 'ALL';
         let selectedProductFilterIds = [];
 
+        const MONTH_LABELS = {
+            '01': 'Janeiro',
+            '02': 'Fevereiro',
+            '03': 'Março',
+            '04': 'Abril',
+            '05': 'Maio',
+            '06': 'Junho',
+            '07': 'Julho',
+            '08': 'Agosto',
+            '09': 'Setembro',
+            '10': 'Outubro',
+            '11': 'Novembro',
+            '12': 'Dezembro'
+        };
+
         // Helper: auto classify family line if not explicitly mapped
         function inferFamilyLine(productName) {
             if (!productName) return 'OUTROS';
@@ -646,6 +693,63 @@
             const parts = dateStr.split('-');
             if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
             return dateStr;
+        }
+
+        function getSalePeriodParts(dateStr) {
+            if (!dateStr) return { month: '', year: '' };
+            const parts = dateStr.toString().split(/[./-]/).map(part => part.trim());
+
+            if (parts.length === 3 && parts[0].length === 4) {
+                return { year: parts[0], month: parts[1].padStart(2, '0') };
+            }
+
+            if (parts.length === 3 && parts[2].length === 4) {
+                return { year: parts[2], month: parts[1].padStart(2, '0') };
+            }
+
+            return { month: '', year: '' };
+        }
+
+        function getSelectedPeriod() {
+            return {
+                month: document.getElementById('periodMonth')?.value || 'ALL',
+                year: document.getElementById('periodYear')?.value || 'ALL'
+            };
+        }
+
+        function saleMatchesPeriod(sale) {
+            const period = getSelectedPeriod();
+            if (period.month === 'ALL' && period.year === 'ALL') return true;
+
+            const salePeriod = getSalePeriodParts(sale.date);
+            const matchesMonth = period.month === 'ALL' || salePeriod.month === period.month;
+            const matchesYear = period.year === 'ALL' || salePeriod.year === period.year;
+
+            return matchesMonth && matchesYear;
+        }
+
+        function getFilteredSales() {
+            return sales.filter(saleMatchesPeriod);
+        }
+
+        function getPeriodLabel() {
+            const period = getSelectedPeriod();
+            const monthLabel = period.month === 'ALL' ? 'Todos os meses' : MONTH_LABELS[period.month];
+            const yearLabel = period.year === 'ALL' ? 'Todos os anos' : period.year;
+            return `${monthLabel} / ${yearLabel}`;
+        }
+
+        function populatePeriodYearOptions() {
+            const select = document.getElementById('periodYear');
+            if (!select) return;
+
+            const currentValue = select.value || 'ALL';
+            const years = [...new Set(sales.map(sale => getSalePeriodParts(sale.date).year).filter(Boolean))]
+                .sort((a, b) => b.localeCompare(a));
+
+            select.innerHTML = '<option value="ALL">Todos os anos</option>' +
+                years.map(year => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('');
+            select.value = years.includes(currentValue) ? currentValue : 'ALL';
         }
 
         function escapeHtml(value) {
@@ -823,7 +927,7 @@
 
         function getClientProductCoverage(clientId) {
             const selectedProducts = getSelectedProductFilters();
-            const clientProductIds = new Set(sales.filter(s => s.clientId === clientId).map(s => s.productId));
+            const clientProductIds = new Set(getFilteredSales().filter(s => s.clientId === clientId).map(s => s.productId));
             const bought = selectedProducts.filter(product => clientProductIds.has(product.id));
             const missing = selectedProducts.filter(product => !clientProductIds.has(product.id));
 
@@ -849,13 +953,13 @@
             return true;
         }
 
-        function filterClients() {
+        function getFilteredClientsForDisplay() {
             const sapVal = document.getElementById('searchSap').value.toLowerCase();
             const nameVal = document.getElementById('searchClientName').value.toLowerCase();
             const redeVal = document.getElementById('searchRede').value;
             const sellerVal = document.getElementById('searchSeller').value;
 
-            const matches = clients.filter(c => {
+            return clients.filter(c => {
                 const matchSap = c.id.toLowerCase().includes(sapVal);
                 const matchName = c.name.toLowerCase().includes(nameVal);
                 const matchRede = redeVal === 'ALL' || c.rede === redeVal;
@@ -863,8 +967,17 @@
                 const matchProducts = clientMatchesProductPurchaseMode(c.id);
                 return matchSap && matchName && matchRede && matchSeller && matchProducts;
             });
+        }
+
+        function filterClients() {
+            const matches = getFilteredClientsForDisplay();
 
             renderClientsGrid(matches);
+        }
+
+        function handlePeriodFilterChange() {
+            filterClients();
+            updateDashboard();
         }
 
         function handleRedeFilterChange() {
@@ -895,7 +1008,7 @@
 
             grid.innerHTML = itemsToShow.map(c => {
                 const isSelected = selectedViewMode === 'client' && c.id === selectedClientId;
-                const clientSales = sales.filter(s => s.clientId === c.id);
+                const clientSales = getFilteredSales().filter(s => s.clientId === c.id);
                 const uniqueProducts = new Set(clientSales.map(s => s.productId)).size;
                 const rate = products.length > 0 ? (uniqueProducts / products.length) * 100 : 0;
                 const coverage = getClientProductCoverage(c.id);
@@ -985,7 +1098,7 @@
             document.getElementById('activeClientCidade').innerText = scope.cidade;
 
             // Compute statistics
-            const clientSales = sales.filter(s => scope.clientIds.has(s.clientId));
+            const clientSales = getFilteredSales().filter(s => scope.clientIds.has(s.clientId));
             const totalItems = products.length;
             
             const positivados = products.filter(p => clientSales.some(s => s.productId === p.id)).length;
@@ -1018,18 +1131,10 @@
             renderMatrix();
         }
 
-        function renderMatrix() {
-            const searchVal = document.getElementById('matrixSearchText').value.toLowerCase();
-            const typeFilter = document.getElementById('filterType').value;
-            const lineFilter = document.getElementById('filterLine').value;
-            const itemStatusFilter = document.getElementById('filterItemStatus').value;
-            const tbody = document.getElementById('matrixTableBody');
+        function buildMatrixData(scope = getActiveScope()) {
+            const clientSales = getFilteredSales().filter(s => scope.clientIds.has(s.clientId));
 
-            const scope = getActiveScope();
-            const clientSales = sales.filter(s => scope.clientIds.has(s.clientId));
-
-            // Construct display matrix matching static catalog dynamic state
-            const matrixData = products.map(product => {
+            return products.map(product => {
                 const productSales = clientSales.filter(s => s.productId === product.id);
                 if (productSales.length > 0) {
                     const salesByDate = productSales.reduce((acc, sale) => {
@@ -1055,22 +1160,28 @@
                         maxQty: Math.max(...purchases.map(p => p.quantity || 0)),
                         accumulated: productSales.reduce((sum, s) => sum + (s.price * s.quantity), 0)
                     };
-                } else {
-                    return {
-                        ...product,
-                        itemStatus: product.itemStatus || 'ATIVO',
-                        positivado: false,
-                        lastDate: null,
-                        lastPrice: null,
-                        lastQty: null,
-                        maxQty: null,
-                        accumulated: 0
-                    };
                 }
-            });
 
-            // Filtering calculations
-            const filtered = matrixData.filter(item => {
+                return {
+                    ...product,
+                    itemStatus: product.itemStatus || 'ATIVO',
+                    positivado: false,
+                    lastDate: null,
+                    lastPrice: null,
+                    lastQty: null,
+                    maxQty: null,
+                    accumulated: 0
+                };
+            });
+        }
+
+        function getFilteredMatrixData(scope = getActiveScope()) {
+            const searchVal = document.getElementById('matrixSearchText').value.toLowerCase();
+            const typeFilter = document.getElementById('filterType').value;
+            const lineFilter = document.getElementById('filterLine').value;
+            const itemStatusFilter = document.getElementById('filterItemStatus').value;
+
+            return buildMatrixData(scope).filter(item => {
                 const matchesSearch = item.name.toLowerCase().includes(searchVal) || item.id.includes(searchVal);
                 const matchesStatus = activeStatusFilter === 'ALL' || 
                                       (activeStatusFilter === 'POSITIVADO' && item.positivado) || 
@@ -1086,6 +1197,13 @@
                 a.line.localeCompare(b.line, 'pt-BR') ||
                 a.name.localeCompare(b.name, 'pt-BR')
             );
+        }
+
+        function renderMatrix() {
+            const tbody = document.getElementById('matrixTableBody');
+            const scope = getActiveScope();
+            const matrixData = buildMatrixData(scope);
+            const filtered = getFilteredMatrixData(scope);
 
             document.getElementById('matrixFooterStats').innerText = `Mapeando ${filtered.length} de ${matrixData.length} produtos no portfólio.`;
 
@@ -1137,6 +1255,126 @@
             }).join('');
 
             if (window.lucide) lucide.createIcons();
+        }
+
+        function getSelectLabel(selectId, fallback = 'Todos') {
+            const select = document.getElementById(selectId);
+            return select?.selectedOptions?.[0]?.textContent?.trim() || fallback;
+        }
+
+        function buildExcelTable(title, headers, rows) {
+            return `
+                <h2>${escapeHtml(title)}</h2>
+                <table>
+                    <thead>
+                        <tr>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function sanitizeFilePart(value) {
+            return (value || 'todos').toString()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .toLowerCase() || 'todos';
+        }
+
+        function downloadExcelFile(filename, html) {
+            const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+
+        function exportCurrentAnalysisToExcel() {
+            const scope = getActiveScope();
+            const filteredClients = getFilteredClientsForDisplay();
+            const filteredSales = getFilteredSales();
+            const selectedProducts = getSelectedProductFilters();
+            const matrixRows = getFilteredMatrixData(scope).map(item => [
+                item.id,
+                item.name,
+                item.type,
+                item.line,
+                item.itemStatus || 'ATIVO',
+                item.positivado ? 'Positivado' : 'Oportunidade',
+                item.lastDate ? formatDate(item.lastDate) : '-',
+                item.lastQty || '-',
+                item.maxQty || '-',
+                item.lastPrice ? formatBRL(item.lastPrice) : '-'
+            ]);
+
+            const clientRows = filteredClients.map(client => {
+                const clientSales = filteredSales.filter(sale => sale.clientId === client.id);
+                const uniqueProducts = new Set(clientSales.map(sale => sale.productId)).size;
+                const totalFaturado = clientSales.reduce((sum, sale) => sum + ((sale.price || 0) * (sale.quantity || 0)), 0);
+                const coverage = getClientProductCoverage(client.id);
+
+                return [
+                    client.id,
+                    client.name,
+                    client.rede || 'SEM REDE',
+                    client.seller || 'SEM VENDEDOR',
+                    client.bairro || '-',
+                    client.cidade || '-',
+                    uniqueProducts,
+                    formatBRL(totalFaturado),
+                    coverage.total ? `${coverage.boughtCount}/${coverage.total}` : '-',
+                    coverage.missing.map(product => `${product.id} - ${product.name}`).join('; ') || '-'
+                ];
+            });
+
+            const summaryRows = [
+                ['Período', getPeriodLabel()],
+                ['Rede', selectedRede === 'ALL' ? 'Todas as Redes' : selectedRede],
+                ['Vendedor', selectedSeller === 'ALL' ? 'Todos os Vendedores' : selectedSeller],
+                ['Cliente/Carteira ativa', scope.name],
+                ['Filtro de produtos', selectedProducts.length ? selectedProducts.map(product => `${product.id} - ${product.name}`).join('; ') : 'Nenhum produto selecionado'],
+                ['Resultado da compra', getSelectLabel('clientProductPurchaseMode', 'Todos')],
+                ['Status da matriz', activeStatusFilter === 'ALL' ? 'Todos' : activeStatusFilter],
+                ['Tipo de produto', getSelectLabel('filterType', 'Todos')],
+                ['Descrição de linha', getSelectLabel('filterLine', 'Todas')],
+                ['Situação item', getSelectLabel('filterItemStatus', 'Todas')],
+                ['Clientes filtrados', filteredClients.length],
+                ['Produtos na matriz', matrixRows.length]
+            ];
+
+            const html = `
+                <!DOCTYPE html>
+                <html lang="pt-BR">
+                <head>
+                    <meta charset="utf-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; color: #0f172a; }
+                        h1 { color: #0b4ea2; }
+                        h2 { margin-top: 24px; color: #0f172a; }
+                        table { border-collapse: collapse; margin-bottom: 24px; width: 100%; }
+                        th { background: #0b4ea2; color: #ffffff; font-weight: bold; }
+                        th, td { border: 1px solid #cbd5e1; padding: 7px; font-size: 12px; mso-number-format: "\\@"; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Positiva Sim - Exportação da Análise</h1>
+                    ${buildExcelTable('Resumo dos Filtros', ['Campo', 'Valor'], summaryRows)}
+                    ${buildExcelTable('Clientes', ['SAP', 'Cliente', 'Rede', 'Vendedor', 'Bairro', 'Cidade', 'Produtos comprados', 'Faturado', 'Produtos selecionados com compra', 'Produtos selecionados sem compra'], clientRows)}
+                    ${buildExcelTable('Matriz de Produtos', ['Material', 'Produto', 'Tipo Produto', 'Descrição Linha', 'Situação Item', 'Status Compra', 'Última Compra', 'Volume Última Compra', 'Maior Compra', 'Último Preço'], matrixRows)}
+                </body>
+                </html>
+            `;
+
+            const period = getSelectedPeriod();
+            const filename = `positiva-sim-${sanitizeFilePart(period.month === 'ALL' ? 'todos-meses' : MONTH_LABELS[period.month])}-${sanitizeFilePart(period.year)}.xls`;
+            downloadExcelFile(filename, html);
         }
 
         function applyCSVText(text, sourceLabel = 'base') {
@@ -1264,6 +1502,9 @@
             document.getElementById('searchRede').value = 'ALL';
             populateSellerOptions();
             document.getElementById('searchSeller').value = 'ALL';
+            populatePeriodYearOptions();
+            document.getElementById('periodMonth').value = 'ALL';
+            document.getElementById('periodYear').value = 'ALL';
             populateFamilyFilter();
             clearMissingSelectedProductFilters();
             populateProductClientPicker();
@@ -1353,6 +1594,7 @@
             if (window.lucide) lucide.createIcons();
             populateRedeOptions();
             populateSellerOptions();
+            populatePeriodYearOptions();
             populateFamilyFilter();
             populateProductClientPicker();
             renderSelectedProductChips();
