@@ -237,22 +237,28 @@
 
             <div class="mt-4 pt-4 border-t border-slate-900 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Filtrar por Mês</label>
-                    <select id="periodMonth" onchange="handlePeriodFilterChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                        <option value="ALL">Todos os meses</option>
-                        <option value="01">Janeiro</option>
-                        <option value="02">Fevereiro</option>
-                        <option value="03">Março</option>
-                        <option value="04">Abril</option>
-                        <option value="05">Maio</option>
-                        <option value="06">Junho</option>
-                        <option value="07">Julho</option>
-                        <option value="08">Agosto</option>
-                        <option value="09">Setembro</option>
-                        <option value="10">Outubro</option>
-                        <option value="11">Novembro</option>
-                        <option value="12">Dezembro</option>
-                    </select>
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase">Filtrar por Mês</label>
+                        <span id="periodMonthSummary" class="text-[10px] font-bold text-indigo-400">Todos os meses</span>
+                    </div>
+                    <div id="periodMonthGroup" class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="01" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Jan</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="02" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Fev</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="03" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Mar</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="04" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Abr</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="05" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Mai</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="06" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Jun</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="07" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Jul</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="08" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Ago</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="09" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Set</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="10" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Out</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="11" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Nov</label>
+                        <label class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-300 cursor-pointer"><input type="checkbox" value="12" class="accent-indigo-500" onchange="handlePeriodFilterChange()"> Dez</label>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="setAllPeriodMonths(true)" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300">Todos</button>
+                        <button onclick="setAllPeriodMonths(false)" class="text-[10px] font-bold text-slate-500 hover:text-slate-300">Limpar</button>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Filtrar por Ano</label>
@@ -711,18 +717,21 @@
         }
 
         function getSelectedPeriod() {
+            const checkedMonths = [...document.querySelectorAll('#periodMonthGroup input[type="checkbox"]:checked')]
+                .map(input => input.value);
+
             return {
-                month: document.getElementById('periodMonth')?.value || 'ALL',
+                months: checkedMonths,
                 year: document.getElementById('periodYear')?.value || 'ALL'
             };
         }
 
         function saleMatchesPeriod(sale) {
             const period = getSelectedPeriod();
-            if (period.month === 'ALL' && period.year === 'ALL') return true;
+            if (!period.months.length && period.year === 'ALL') return true;
 
             const salePeriod = getSalePeriodParts(sale.date);
-            const matchesMonth = period.month === 'ALL' || salePeriod.month === period.month;
+            const matchesMonth = !period.months.length || period.months.includes(salePeriod.month);
             const matchesYear = period.year === 'ALL' || salePeriod.year === period.year;
 
             return matchesMonth && matchesYear;
@@ -734,9 +743,27 @@
 
         function getPeriodLabel() {
             const period = getSelectedPeriod();
-            const monthLabel = period.month === 'ALL' ? 'Todos os meses' : MONTH_LABELS[period.month];
+            const monthLabel = !period.months.length
+                ? 'Todos os meses'
+                : period.months.map(month => MONTH_LABELS[month]).join(', ');
             const yearLabel = period.year === 'ALL' ? 'Todos os anos' : period.year;
             return `${monthLabel} / ${yearLabel}`;
+        }
+
+        function updatePeriodMonthSummary() {
+            const summary = document.getElementById('periodMonthSummary');
+            if (!summary) return;
+
+            const selectedMonths = getSelectedPeriod().months;
+            summary.innerText = !selectedMonths.length
+                ? 'Todos os meses'
+                : `${selectedMonths.length} mês${selectedMonths.length > 1 ? 'es' : ''}`;
+        }
+
+        function setAllPeriodMonths(checked) {
+            document.querySelectorAll('#periodMonthGroup input[type="checkbox"]')
+                .forEach(input => { input.checked = checked; });
+            handlePeriodFilterChange();
         }
 
         function populatePeriodYearOptions() {
@@ -976,6 +1003,7 @@
         }
 
         function handlePeriodFilterChange() {
+            updatePeriodMonthSummary();
             filterClients();
             updateDashboard();
         }
@@ -1373,7 +1401,10 @@
             `;
 
             const period = getSelectedPeriod();
-            const filename = `positiva-sim-${sanitizeFilePart(period.month === 'ALL' ? 'todos-meses' : MONTH_LABELS[period.month])}-${sanitizeFilePart(period.year)}.xls`;
+            const monthFilePart = !period.months.length
+                ? 'todos-meses'
+                : period.months.map(month => MONTH_LABELS[month]).join('-');
+            const filename = `positiva-sim-${sanitizeFilePart(monthFilePart)}-${sanitizeFilePart(period.year)}.xls`;
             downloadExcelFile(filename, html);
         }
 
@@ -1503,7 +1534,7 @@
             populateSellerOptions();
             document.getElementById('searchSeller').value = 'ALL';
             populatePeriodYearOptions();
-            document.getElementById('periodMonth').value = 'ALL';
+            setAllPeriodMonths(false);
             document.getElementById('periodYear').value = 'ALL';
             populateFamilyFilter();
             clearMissingSelectedProductFilters();

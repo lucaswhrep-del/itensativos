@@ -116,7 +116,7 @@ Os cards dos clientes mostram a contagem `comprados/selecionados` e sinalizam os
 
 ## Filtrar por mes/ano e exportar Excel
 
-Na area de pesquisa da carteira, use `Filtrar por Mes` e `Filtrar por Ano` para analisar apenas o periodo desejado. O filtro afeta os indicadores, a lista de clientes, a consulta por produtos e a matriz de positivacao.
+Na area de pesquisa da carteira, use `Filtrar por Mes` e `Filtrar por Ano` para analisar apenas o periodo desejado. E possivel marcar um ou mais meses, por exemplo abril, maio e junho. Se nenhum mes estiver marcado, o app considera todos os meses. O filtro afeta os indicadores, a lista de clientes, a consulta por produtos e a matriz de positivacao.
 
 O botao `Exportar Excel` baixa um arquivo `.xls` com:
 
