@@ -598,6 +598,8 @@
         let selectedSeller = 'ALL';
         let activeStatusFilter = 'ALL';
         let selectedProductFilterIds = [];
+        let filteredSalesCache = null;
+        let filteredSalesCacheKey = '';
 
         const MONTH_LABELS = {
             '01': 'Janeiro',
@@ -721,13 +723,17 @@
                 .map(input => input.value);
 
             return {
-                months: checkedMonths,
+                months: checkedMonths.length === 12 ? [] : checkedMonths,
                 year: document.getElementById('periodYear')?.value || 'ALL'
             };
         }
 
-        function saleMatchesPeriod(sale) {
+        function getSelectedPeriodCacheKey() {
             const period = getSelectedPeriod();
+            return `${period.year}|${period.months.join(',')}|${sales.length}`;
+        }
+
+        function saleMatchesPeriod(sale, period = getSelectedPeriod()) {
             if (!period.months.length && period.year === 'ALL') return true;
 
             const salePeriod = getSalePeriodParts(sale.date);
@@ -738,7 +744,18 @@
         }
 
         function getFilteredSales() {
-            return sales.filter(saleMatchesPeriod);
+            const cacheKey = getSelectedPeriodCacheKey();
+            if (filteredSalesCache && filteredSalesCacheKey === cacheKey) return filteredSalesCache;
+
+            const period = getSelectedPeriod();
+            filteredSalesCacheKey = cacheKey;
+            filteredSalesCache = sales.filter(sale => saleMatchesPeriod(sale, period));
+            return filteredSalesCache;
+        }
+
+        function invalidateFilteredSalesCache() {
+            filteredSalesCache = null;
+            filteredSalesCacheKey = '';
         }
 
         function getPeriodLabel() {
@@ -760,10 +777,12 @@
                 : `${selectedMonths.length} mês${selectedMonths.length > 1 ? 'es' : ''}`;
         }
 
-        function setAllPeriodMonths(checked) {
+        function setAllPeriodMonths(checked, shouldRefresh = true) {
             document.querySelectorAll('#periodMonthGroup input[type="checkbox"]')
                 .forEach(input => { input.checked = checked; });
-            handlePeriodFilterChange();
+            invalidateFilteredSalesCache();
+            updatePeriodMonthSummary();
+            if (shouldRefresh) handlePeriodFilterChange();
         }
 
         function populatePeriodYearOptions() {
@@ -1003,6 +1022,7 @@
         }
 
         function handlePeriodFilterChange() {
+            invalidateFilteredSalesCache();
             updatePeriodMonthSummary();
             filterClients();
             updateDashboard();
@@ -1438,7 +1458,7 @@
 
             const sapIdx = getIdx(['sap', 'código emissor', 'codigo emissor', 'cod emissor']);
             const clientIdx = getIdx(['cliente emissor', 'razão social', 'razao social', 'nome fantasia', 'cliente', 'nome']);
-            const sellerIdx = getIdx(['vendedor', 'representante', 'consultor', 'supervisor', 'rca', 'executivo', 'carteira', 'responsavel', 'responsável']);
+            const sellerIdx = getIdx(['vendedor', 'nome vendedor', 'cod vendedor', 'codigo vendedor', 'código vendedor', 'representante', 'consultor', 'supervisor', 'rca', 'executivo', 'carteira', 'responsavel', 'responsável']);
             const redeIdx = getIdx(['rede', 'grupo']);
             const bairroIdx = getIdx(['bairro', 'bairros']);
             const cidadeIdx = getIdx(['cidade', 'municipio', 'município']);
@@ -1524,6 +1544,7 @@
             clients = parsedClients;
             products = parsedProducts;
             sales = parsedSales;
+            invalidateFilteredSalesCache();
             selectedClientId = parsedClients[0].id;
             selectedViewMode = 'client';
             selectedRede = 'ALL';
@@ -1534,7 +1555,7 @@
             populateSellerOptions();
             document.getElementById('searchSeller').value = 'ALL';
             populatePeriodYearOptions();
-            setAllPeriodMonths(false);
+            setAllPeriodMonths(false, false);
             document.getElementById('periodYear').value = 'ALL';
             populateFamilyFilter();
             clearMissingSelectedProductFilters();
