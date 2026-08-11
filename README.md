@@ -103,6 +103,119 @@ https://SEU-SITE.netlify.app/?base=LINK_CSV_DO_GOOGLE_SHEETS
 
 Depois de configurado, todos que abrirem o app carregarao a mesma base central.
 
+## Atualizar Google Sheets pelo app
+
+O app tambem pode enviar o CSV importado para uma planilha central usando Google Apps Script. Use este script na planilha:
+
+```javascript
+const SHEET_NAME = 'base';
+const SECRET = 'positiva-sim-2026';
+
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents || '{}');
+
+    if (payload.secret !== SECRET) {
+      return jsonResponse({ ok: false, error: 'Senha invalida.' });
+    }
+
+    if (!payload.csvText) {
+      return jsonResponse({ ok: false, error: 'CSV vazio.' });
+    }
+
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet(SHEET_NAME);
+    }
+
+    const rows = Utilities.parseCsv(payload.csvText);
+    sheet.clearContents();
+
+    if (rows.length) {
+      const width = Math.max(...rows.map(row => row.length));
+      const normalizedRows = rows.map(row => {
+        while (row.length < width) row.push('');
+        return row;
+      });
+      sheet.getRange(1, 1, normalizedRows.length, width).setValues(normalizedRows);
+    }
+
+    SpreadsheetApp.flush();
+
+    return jsonResponse({
+      ok: true,
+      rows: rows.length,
+      columns: rows[0] ? rows[0].length : 0,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: error.message });
+  }
+}
+
+function doGet(e) {
+  const params = e.parameter || {};
+
+  if (params.secret !== SECRET) {
+    return outputByMode(params, { ok: false, error: 'Senha invalida.' });
+  }
+
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      return outputByMode(params, { ok: false, error: 'Aba base nao encontrada.' });
+    }
+
+    const values = sheet.getDataRange().getDisplayValues();
+    const csvText = values.map(row => row.map(csvEscape).join(',')).join('\n');
+
+    return outputByMode(params, {
+      ok: true,
+      csvText,
+      rows: values.length,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    return outputByMode(params, { ok: false, error: error.message });
+  }
+}
+
+function csvEscape(value) {
+  const text = value == null ? '' : String(value);
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function outputByMode(params, data) {
+  if (params.mode === 'jsonp') {
+    const callback = params.callback || 'callback';
+    return ContentService
+      .createTextOutput(`${callback}(${JSON.stringify(data)});`)
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
+  if (params.mode === 'csv' && data.ok) {
+    return ContentService
+      .createTextOutput(data.csvText || '')
+      .setMimeType(ContentService.MimeType.CSV);
+  }
+
+  return jsonResponse(data);
+}
+
+function jsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+Depois de substituir o script, publique uma nova versao do Web App em `Implantar > Gerenciar implantacoes > Editar > Nova versao`.
+
 ## Cruzar clientes por produto
 
 Na area de pesquisa da carteira, use `Selecionar Produto(s) para Consulta de Compra` para adicionar um ou mais itens do portfolio. Em `Resultado da Compra`, escolha:

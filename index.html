@@ -558,7 +558,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-08-11-ultima-compra-v2';
+        const APP_VERSION = '2026-08-11-sync-sheets-v1';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -587,8 +587,11 @@
             { clientId: '5001712', productId: '600316300', date: '2026-01-21', price: 13.86, quantity: 1 }
         ];
 
-        // Cole aqui a URL CSV publicada do Google Sheets para carregar a base automaticamente.
-        // Tambem e possivel testar usando ?base=URL_DO_CSV no fim do link do app.
+        // Ponte com Google Apps Script para ler e atualizar a base central.
+        const SHEETS_SYNC_URL = 'https://script.google.com/macros/s/AKfycbyyntz8KyF2me_Z96GiVLQ7xvWGy_6ZHlZivTXOaoJwwLurgoJDndLcMw3O2dgq3evXvg/exec';
+        const SHEETS_SYNC_SECRET = 'positiva-sim-2026';
+
+        // Fallback antigo: ainda pode ser usado via ?base=URL_DO_CSV no fim do link do app.
         const REMOTE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRnUvOAu7iPaOx8BmJUps5GLmPEPZ0JH0Sws7T499aaaZ66Nlu6JrpSgILE26vN6EdVEW3X54JSOJj5/pub?output=csv';
 
         let clients = [...INITIAL_CLIENTS];
@@ -1609,6 +1612,27 @@
             return { clients: parsedClients.length, products: parsedProducts.length, sales: parsedSales.length, sourceLabel };
         }
 
+        async function syncCSVTextToCentralBase(csvText, sourceLabel = 'base') {
+            if (!SHEETS_SYNC_URL) return false;
+
+            const payload = {
+                secret: SHEETS_SYNC_SECRET,
+                csvText,
+                sourceLabel,
+                appVersion: APP_VERSION,
+                updatedAt: new Date().toISOString()
+            };
+
+            await fetch(SHEETS_SYNC_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+
+            return true;
+        }
+
         function handleCSVUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1618,7 +1642,7 @@
 
             const reader = new FileReader();
             let retriedWithWindows1252 = false;
-            reader.onload = function(evt) {
+            reader.onload = async function(evt) {
                 const text = evt.target.result;
                 const headerLine = text.split(/\r?\n/)[0] || '';
 
@@ -1630,7 +1654,15 @@
 
                 try {
                     const result = applyCSVText(text, file.name);
-                    showCSVFeedback(`Sucesso! Carregados ${result.clients} clientes, ${result.products} produtos e ${result.sales} faturamentos.`, false);
+                    showCSVFeedback(`Sucesso! Carregados ${result.clients} clientes, ${result.products} produtos e ${result.sales} faturamentos. Enviando para a base central...`, false);
+
+                    try {
+                        await syncCSVTextToCentralBase(text, file.name);
+                        showCSVFeedback(`Sucesso! Carregados ${result.clients} clientes, ${result.products} produtos e ${result.sales} faturamentos. Base enviada para sincronização central.`, false);
+                    } catch (syncError) {
+                        console.warn('Falha ao sincronizar com Google Sheets.', syncError);
+                        showCSVFeedback(`A base foi carregada neste aparelho, mas não foi possível sincronizar com o Google Sheets. Verifique a implantação do Apps Script.`, true);
+                    }
                 } catch (error) {
                     showCSVFeedback(error.message, true);
                 }
@@ -1653,8 +1685,65 @@
             return params.get('base') || REMOTE_CSV_URL;
         }
 
+        function loadCentralBaseViaAppsScript() {
+            return new Promise((resolve, reject) => {
+                if (!SHEETS_SYNC_URL) {
+                    reject(new Error('URL do Apps Script não configurada.'));
+                    return;
+                }
+
+                const callbackName = `positivaSimBase_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                const script = document.createElement('script');
+                const timeout = window.setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Tempo excedido ao carregar base central.'));
+                }, 30000);
+
+                const cleanup = () => {
+                    window.clearTimeout(timeout);
+                    delete window[callbackName];
+                    script.remove();
+                };
+
+                window[callbackName] = (payload) => {
+                    cleanup();
+                    if (!payload?.ok) {
+                        reject(new Error(payload?.error || 'Resposta inválida da base central.'));
+                        return;
+                    }
+                    resolve(payload.csvText || '');
+                };
+
+                const params = new URLSearchParams({
+                    mode: 'jsonp',
+                    secret: SHEETS_SYNC_SECRET,
+                    callback: callbackName,
+                    _ts: Date.now().toString()
+                });
+
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error('Não foi possível carregar o script da base central.'));
+                };
+                script.src = `${SHEETS_SYNC_URL}?${params.toString()}`;
+                document.body.appendChild(script);
+            });
+        }
+
         async function loadRemoteBase() {
             const remoteUrl = getRemoteCSVUrl();
+
+            try {
+                const centralText = await loadCentralBaseViaAppsScript();
+                if (!centralText.trim()) throw new Error('Base central vazia.');
+
+                const result = applyCSVText(centralText, 'base central');
+                console.info(`Base central carregada via Apps Script: ${result.clients} clientes, ${result.products} produtos, ${result.sales} faturamentos.`);
+                return;
+            } catch (centralError) {
+                console.warn('Não foi possível carregar via Apps Script. Tentando fallback CSV.', centralError);
+            }
+
             if (!remoteUrl) return;
 
             try {
