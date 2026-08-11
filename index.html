@@ -553,10 +553,13 @@
     <!-- FOOTER -->
     <footer class="bg-slate-950 border-t border-slate-800 py-6 px-6 mt-12 text-center text-xs text-slate-500">
         <p>© 2026 POSITIVA SIM - Controle de Mix Itambé. Desenvolvido para Vendas e Trade Marketing.</p>
+        <p id="appVersionLabel" class="mt-1 font-mono text-[10px] text-slate-400">Versão: carregando...</p>
     </footer>
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
+        const APP_VERSION = '2026-08-11-ultima-compra-v2';
+
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
             { id: '5001712', name: 'COEMDIBRA COOP CONS EMP GR M D B LT', rede: 'SEM REDE', bairro: 'JABOTI', cidade: 'ITAITINGA', seller: 'SEM VENDEDOR' },
@@ -1683,6 +1686,7 @@
 
         window.onload = async function() {
             if (window.lucide) lucide.createIcons();
+            document.getElementById('appVersionLabel').innerText = `Versão: ${APP_VERSION}`;
             populateRedeOptions();
             populateSellerOptions();
             populatePeriodYearOptions();
