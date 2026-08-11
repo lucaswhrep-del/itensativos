@@ -561,7 +561,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-08-11-sync-sheets-v9';
+        const APP_VERSION = '2026-08-11-sync-sheets-v10';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -1489,7 +1489,16 @@
         }
 
         function applyCSVText(text, sourceLabel = 'base') {
-            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+            let normalizedText = text || '';
+
+            if (!/\r?\n/.test(normalizedText) && /\\n|\\r/.test(normalizedText)) {
+                normalizedText = normalizedText
+                    .replace(/\\r\\n/g, '\n')
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\r/g, '\n');
+            }
+
+            const lines = normalizedText.split(/\r?\n/).map(l => l.trim()).filter(l => l);
 
             if (lines.length < 2) {
                 throw new Error('O ficheiro CSV enviado não possui dados suficientes.');
