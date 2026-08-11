@@ -531,14 +531,14 @@
               <input type="file" id="csvFileInput" accept=".csv,.tsv,.txt" onchange="handleCSVUpload(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
             </div>
 
-            <div id="importErrorAlert" class="p-4 bg-rose-950/40 border border-rose-800 rounded-xl hidden items-start gap-3 text-xs text-rose-350">
+            <div id="importErrorAlert" class="p-4 bg-rose-950/40 border border-rose-800 rounded-xl hidden items-start gap-3 text-xs text-rose-700">
               <i class="lucide-alert-circle w-4 h-4 flex-shrink-0 mt-0.5 text-rose-400"></i>
-              <p id="importErrorText"></p>
+              <p id="importErrorText" class="font-semibold leading-relaxed"></p>
             </div>
 
-            <div id="importSuccessAlert" class="p-4 bg-emerald-950/40 border border-emerald-800 rounded-xl hidden items-start gap-3 text-xs text-emerald-350">
+            <div id="importSuccessAlert" class="p-4 bg-emerald-950/40 border border-emerald-800 rounded-xl hidden items-start gap-3 text-xs text-emerald-700">
               <i class="lucide-check-circle w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-400"></i>
-              <p id="importSuccessText"></p>
+              <p id="importSuccessText" class="font-semibold leading-relaxed"></p>
             </div>
 
             <div class="pt-4 flex gap-3 border-t border-slate-800">
@@ -558,7 +558,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-08-11-sync-sheets-v1';
+        const APP_VERSION = '2026-08-11-sync-sheets-v2';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -1633,6 +1633,10 @@
             return true;
         }
 
+        function wait(ms) {
+            return new Promise(resolve => window.setTimeout(resolve, ms));
+        }
+
         function handleCSVUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1658,10 +1662,15 @@
 
                     try {
                         await syncCSVTextToCentralBase(text, file.name);
-                        showCSVFeedback(`Sucesso! Carregados ${result.clients} clientes, ${result.products} produtos e ${result.sales} faturamentos. Base enviada para sincronização central.`, false);
+                        showCSVFeedback(`Base enviada. Confirmando atualização no Google Sheets...`, false);
+
+                        await wait(1800);
+                        const centralText = await loadCentralBaseViaAppsScript();
+                        const centralResult = applyCSVText(centralText, 'base central confirmada');
+                        showCSVFeedback(`Sincronização confirmada! Base central atualizada com ${centralResult.clients} clientes, ${centralResult.products} produtos e ${centralResult.sales} faturamentos.`, false);
                     } catch (syncError) {
                         console.warn('Falha ao sincronizar com Google Sheets.', syncError);
-                        showCSVFeedback(`A base foi carregada neste aparelho, mas não foi possível sincronizar com o Google Sheets. Verifique a implantação do Apps Script.`, true);
+                        showCSVFeedback(`A base foi carregada neste aparelho, mas não foi possível confirmar a sincronização central. Confira se o Apps Script foi implantado como nova versão.`, true);
                     }
                 } catch (error) {
                     showCSVFeedback(error.message, true);
@@ -1671,11 +1680,21 @@
         }
 
         function showCSVFeedback(text, isError) {
+            const errorAlert = document.getElementById('importErrorAlert');
+            const successAlert = document.getElementById('importSuccessAlert');
+
+            errorAlert.classList.add('hidden');
+            errorAlert.classList.remove('flex');
+            successAlert.classList.add('hidden');
+            successAlert.classList.remove('flex');
+
             if (isError) {
-                document.getElementById('importErrorAlert').classList.remove('hidden');
+                errorAlert.classList.remove('hidden');
+                errorAlert.classList.add('flex');
                 document.getElementById('importErrorText').innerText = text;
             } else {
-                document.getElementById('importSuccessAlert').classList.remove('hidden');
+                successAlert.classList.remove('hidden');
+                successAlert.classList.add('flex');
                 document.getElementById('importSuccessText').innerText = text;
             }
         }
