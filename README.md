@@ -113,7 +113,9 @@ const SECRET = 'positiva-sim-2026';
 
 function doPost(e) {
   try {
-    const payload = JSON.parse(e.postData.contents || '{}');
+    const payload = e.parameter && e.parameter.csvText
+      ? e.parameter
+      : JSON.parse(e.postData.contents || '{}');
 
     if (payload.secret !== SECRET) {
       return jsonResponse({ ok: false, error: 'Senha invalida.' });
