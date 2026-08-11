@@ -542,6 +542,9 @@
             </div>
 
             <div class="pt-4 flex gap-3 border-t border-slate-800">
+              <button onclick="openCentralBaseUpdater()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-sm">
+                Abrir Atualizador Central
+              </button>
               <button onclick="closeModal('importModal')" class="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-300 font-semibold py-2.5 rounded-xl border border-slate-800 text-sm">
                 Fechar
               </button>
@@ -558,7 +561,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-08-11-sync-sheets-v4';
+        const APP_VERSION = '2026-08-11-sync-sheets-v5';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -1669,7 +1672,7 @@
                         showCSVFeedback(`Sincronização confirmada! Base central atualizada com ${centralResult.clients} clientes, ${centralResult.products} produtos e ${centralResult.sales} faturamentos.`, false);
                     } catch (syncError) {
                         console.warn('Falha ao sincronizar com Google Sheets.', syncError);
-                        showCSVFeedback(`A base foi carregada neste aparelho, mas não foi possível confirmar a sincronização central. Confira se o Apps Script foi implantado como nova versão.`, true);
+                        showCSVFeedback(`A base foi carregada neste aparelho, mas não foi possível confirmar a sincronização central. Use o botão "Abrir Atualizador Central" para enviar a base direto pelo Google.`, true);
                     }
                 } catch (error) {
                     showCSVFeedback(error.message, true);
@@ -1701,6 +1704,10 @@
         function getRemoteCSVUrl() {
             const params = new URLSearchParams(window.location.search);
             return params.get('base') || REMOTE_CSV_URL;
+        }
+
+        function openCentralBaseUpdater() {
+            window.open(SHEETS_SYNC_URL, '_blank', 'noopener,noreferrer');
         }
 
         function loadCentralBaseViaAppsScript() {
