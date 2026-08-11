@@ -561,7 +561,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-08-11-sync-sheets-v6';
+        const APP_VERSION = '2026-08-11-sync-sheets-v7';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -594,8 +594,8 @@
         const SHEETS_SYNC_URL = 'https://script.google.com/macros/s/AKfycbyyntz8KyF2me_Z96GiVLQ7xvWGy_6ZHlZivTXOaoJwwLurgoJDndLcMw3O2dgq3evXvg/exec';
         const SHEETS_SYNC_SECRET = 'positiva-sim-2026';
 
-        // Fallback antigo: ainda pode ser usado via ?base=URL_DO_CSV no fim do link do app.
-        const REMOTE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRnUvOAu7iPaOx8BmJUps5GLmPEPZ0JH0Sws7T499aaaZ66Nlu6JrpSgILE26vN6EdVEW3X54JSOJj5/pub?output=csv';
+        // Fallback direto da planilha central. Tambem pode ser sobrescrito via ?base=URL_DO_CSV.
+        const REMOTE_CSV_URL = 'https://docs.google.com/spreadsheets/d/1nKyWcFSb2tCSwWUcEOtpxtr1ptThiBWzUGikw7px3_U/gviz/tq?tqx=out:csv&sheet=base';
 
         let clients = [...INITIAL_CLIENTS];
         let products = [...INITIAL_PRODUCTS];
@@ -1709,7 +1709,7 @@
 
         function getRemoteCSVUrl() {
             const params = new URLSearchParams(window.location.search);
-            return params.get('base') || '';
+            return params.get('base') || REMOTE_CSV_URL;
         }
 
         function openCentralBaseUpdater() {
@@ -1772,7 +1772,7 @@
                 console.info(`Base central carregada via Apps Script: ${result.clients} clientes, ${result.products} produtos, ${result.sales} faturamentos.`);
                 return;
             } catch (centralError) {
-                console.warn('Não foi possível carregar via Apps Script. Tentando fallback CSV.', centralError);
+                console.warn('Não foi possível carregar via Apps Script. Tentando leitura direta da planilha.', centralError);
             }
 
             if (!remoteUrl) return;
@@ -1795,7 +1795,7 @@
                 console.info(`Base central carregada: ${result.clients} clientes, ${result.products} produtos, ${result.sales} faturamentos.`);
             } catch (error) {
                 console.warn('Não foi possível carregar a base central. Use o botão de importação como alternativa.', error);
-                showCSVFeedback('Não foi possível carregar a base central. Confira se a planilha foi publicada como CSV.', true);
+                showCSVFeedback('Não foi possível carregar a base central. O app está exibindo apenas a base interna de teste. Confira a publicação/compartilhamento da planilha.', true);
             }
         }
 
