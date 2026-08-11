@@ -561,7 +561,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-08-11-sync-sheets-v7';
+        const APP_VERSION = '2026-08-11-sync-sheets-v8';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -1727,8 +1727,8 @@
                 const script = document.createElement('script');
                 const timeout = window.setTimeout(() => {
                     cleanup();
-                    reject(new Error('Tempo excedido ao carregar base central.'));
-                }, 30000);
+                    reject(new Error('Tempo excedido ao carregar base central. A planilha respondeu, mas a base é grande e demorou demais para abrir no aparelho.'));
+                }, 120000);
 
                 const cleanup = () => {
                     window.clearTimeout(timeout);
@@ -1763,12 +1763,14 @@
 
         async function loadRemoteBase() {
             const remoteUrl = getRemoteCSVUrl();
+            showCSVFeedback('Carregando base central atualizada. Aguarde alguns instantes...', false);
 
             try {
                 const centralText = await loadCentralBaseViaAppsScript();
                 if (!centralText.trim()) throw new Error('Base central vazia.');
 
                 const result = applyCSVText(centralText, 'base central');
+                showCSVFeedback(`Base central carregada com ${result.clients} clientes, ${result.products} produtos e ${result.sales} faturamentos.`, false);
                 console.info(`Base central carregada via Apps Script: ${result.clients} clientes, ${result.products} produtos, ${result.sales} faturamentos.`);
                 return;
             } catch (centralError) {
