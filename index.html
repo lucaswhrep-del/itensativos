@@ -558,7 +558,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-08-11-sync-sheets-v3';
+        const APP_VERSION = '2026-08-11-sync-sheets-v4';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -1615,49 +1615,18 @@
         async function syncCSVTextToCentralBase(csvText, sourceLabel = 'base') {
             if (!SHEETS_SYNC_URL) return false;
 
-            await new Promise((resolve, reject) => {
-                const frameName = `positivaSimSync_${Date.now()}`;
-                const iframe = document.createElement('iframe');
-                const form = document.createElement('form');
-                const timeout = window.setTimeout(() => {
-                    cleanup();
-                    resolve();
-                }, 6000);
+            const body = new URLSearchParams({
+                secret: SHEETS_SYNC_SECRET,
+                csvText,
+                sourceLabel,
+                appVersion: APP_VERSION,
+                updatedAt: new Date().toISOString()
+            });
 
-                const cleanup = () => {
-                    window.clearTimeout(timeout);
-                    iframe.remove();
-                    form.remove();
-                };
-
-                const addField = (name, value) => {
-                    const input = document.createElement('textarea');
-                    input.name = name;
-                    input.value = value;
-                    form.appendChild(input);
-                };
-
-                iframe.name = frameName;
-                iframe.className = 'hidden';
-                form.className = 'hidden';
-                form.method = 'POST';
-                form.action = SHEETS_SYNC_URL;
-                form.target = frameName;
-
-                addField('secret', SHEETS_SYNC_SECRET);
-                addField('csvText', csvText);
-                addField('sourceLabel', sourceLabel);
-                addField('appVersion', APP_VERSION);
-                addField('updatedAt', new Date().toISOString());
-
-                iframe.onerror = () => {
-                    cleanup();
-                    reject(new Error('Falha ao enviar formulário para o Google Sheets.'));
-                };
-
-                document.body.appendChild(iframe);
-                document.body.appendChild(form);
-                form.submit();
+            await fetch(SHEETS_SYNC_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body
             });
 
             return true;
@@ -1694,7 +1663,7 @@
                         await syncCSVTextToCentralBase(text, file.name);
                         showCSVFeedback(`Base enviada. Confirmando atualização no Google Sheets...`, false);
 
-                        await wait(1800);
+                        await wait(4500);
                         const centralText = await loadCentralBaseViaAppsScript();
                         const centralResult = applyCSVText(centralText, 'base central confirmada');
                         showCSVFeedback(`Sincronização confirmada! Base central atualizada com ${centralResult.clients} clientes, ${centralResult.products} produtos e ${centralResult.sales} faturamentos.`, false);
