@@ -131,7 +131,17 @@ function buildCompactPayload(values) {
     };
   }
 
-  const headers = values[0].map(normalizeHeader);
+  const headerInfo = findHeaderInfo(values);
+
+  if (!headerInfo) {
+    return {
+      ok: false,
+      error: 'Mapeamento falhou. Nao encontrei uma linha de cabecalho com SAP, Material e Descricao material.',
+      firstRows: values.slice(0, 5)
+    };
+  }
+
+  const headers = headerInfo.headers;
   const getIdx = function(matches, excludes) {
     excludes = excludes || [];
     const normalizedMatches = matches.map(normalizeHeader);
@@ -168,7 +178,9 @@ function buildCompactPayload(values) {
   if (sapIdx === -1 || materialIdx === -1 || descIdx === -1) {
     return {
       ok: false,
-      error: 'Mapeamento falhou. Certifique-se de incluir as colunas SAP, Material e Descrição material.'
+      error: 'Mapeamento falhou. Certifique-se de incluir as colunas SAP, Material e Descrição material.',
+      detectedHeaderRow: headerInfo.rowNumber,
+      detectedHeaders: headerInfo.originalHeaders
     };
   }
 
@@ -178,7 +190,7 @@ function buildCompactPayload(values) {
   const seenClients = {};
   const seenProducts = {};
 
-  for (let i = 1; i < values.length; i++) {
+  for (let i = headerInfo.rowIndex + 1; i < values.length; i++) {
     const row = values[i];
     const sap = String(row[sapIdx] || '').trim();
     const material = String(row[materialIdx] || '').trim();
@@ -235,6 +247,45 @@ function buildCompactPayload(values) {
     columns: values[0] ? values[0].length : 0,
     updatedAt: new Date().toISOString()
   };
+}
+
+function findHeaderInfo(values) {
+  const maxRowsToInspect = Math.min(values.length, 50);
+
+  for (let i = 0; i < maxRowsToInspect; i++) {
+    const originalHeaders = values[i] || [];
+    const headers = originalHeaders.map(normalizeHeader);
+
+    const hasSap = headers.some(function(header) {
+      return header === 'sap' ||
+        header.indexOf('codigo emissor') !== -1 ||
+        header.indexOf('cod emissor') !== -1;
+    });
+
+    const hasMaterial = headers.some(function(header) {
+      return header === 'material' ||
+        header === 'codigo material' ||
+        header === 'material id';
+    });
+
+    const hasDescription = headers.some(function(header) {
+      return header.indexOf('descricao material') !== -1 ||
+        header.indexOf('descricao produto') !== -1 ||
+        header === 'produto' ||
+        header === 'item';
+    });
+
+    if (hasSap && hasMaterial && hasDescription) {
+      return {
+        rowIndex: i,
+        rowNumber: i + 1,
+        headers: headers,
+        originalHeaders: originalHeaders
+      };
+    }
+  }
+
+  return null;
 }
 
 function getBaseSheet() {
