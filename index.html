@@ -561,7 +561,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-08-11-sync-sheets-v10';
+        const APP_VERSION = '2026-09-10-sync-compact-v11';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -1600,6 +1600,10 @@
                 parsedSales.push({ clientId: sap, productId: materialId, date: formattedDate, price: price, quantity: quantity });
             }
 
+            return applyParsedData(parsedClients, parsedProducts, parsedSales, sourceLabel);
+        }
+
+        function applyParsedData(parsedClients, parsedProducts, parsedSales, sourceLabel = 'base') {
             if (!parsedClients.length || !parsedProducts.length || !parsedSales.length) {
                 throw new Error('A base foi lida, mas não gerou clientes, produtos ou faturamentos válidos.');
             }
@@ -1628,6 +1632,42 @@
             updateDashboard();
 
             return { clients: parsedClients.length, products: parsedProducts.length, sales: parsedSales.length, sourceLabel };
+        }
+
+        function applyCompactBasePayload(payload, sourceLabel = 'base central compactada') {
+            if (!payload?.compact) {
+                const csvText = payload?.csvText || '';
+                if (!csvText.trim()) throw new Error('Base central vazia.');
+                return applyCSVText(csvText, sourceLabel);
+            }
+
+            const parsedClients = (payload.clients || []).map(row => ({
+                id: String(row[0] || 'SEM_SAP'),
+                name: row[1] || `CLIENTE SAP ${row[0] || 'SEM_SAP'}`,
+                seller: (row[2] || 'SEM VENDEDOR').toString().toUpperCase(),
+                rede: (row[3] || 'SEM REDE').toString().toUpperCase(),
+                bairro: (row[4] || 'SEM BAIRRO').toString().toUpperCase(),
+                cidade: (row[5] || 'SEM CIDADE').toString().toUpperCase()
+            }));
+
+            const parsedProducts = (payload.products || []).map(row => ({
+                id: String(row[0] || 'SEM_COD'),
+                name: row[1] || 'Produto Não Especificado',
+                type: (row[2] || 'LINHA SECA').toString().toUpperCase(),
+                line: (row[3] || inferFamilyLine(row[1] || '')).toString().toUpperCase(),
+                itemStatus: normalizeItemStatus(row[4] || 'ATIVO'),
+                defaultPrice: Number(row[5]) || 10.00
+            }));
+
+            const parsedSales = (payload.sales || []).map(row => ({
+                clientId: String(row[0] || 'SEM_SAP'),
+                productId: String(row[1] || 'SEM_COD'),
+                date: normalizeDateValue(row[2] || ''),
+                price: Number(row[3]) || 0,
+                quantity: Number(row[4]) || 0
+            }));
+
+            return applyParsedData(parsedClients, parsedProducts, parsedSales, sourceLabel);
         }
 
         async function syncCSVTextToCentralBase(csvText, sourceLabel = 'base') {
@@ -1682,8 +1722,8 @@
                         showCSVFeedback(`Base enviada. Confirmando atualização no Google Sheets...`, false);
 
                         await wait(4500);
-                        const centralText = await loadCentralBaseViaAppsScript();
-                        const centralResult = applyCSVText(centralText, 'base central confirmada');
+                        const centralPayload = await loadCentralBaseViaAppsScript();
+                        const centralResult = applyCompactBasePayload(centralPayload, 'base central confirmada');
                         showCSVFeedback(`Sincronização confirmada! Base central atualizada com ${centralResult.clients} clientes, ${centralResult.products} produtos e ${centralResult.sales} faturamentos.`, false);
                     } catch (syncError) {
                         console.warn('Falha ao sincronizar com Google Sheets.', syncError);
@@ -1757,11 +1797,12 @@
                         reject(new Error(payload?.error || 'Resposta inválida da base central.'));
                         return;
                     }
-                    resolve(payload.csvText || '');
+                    resolve(payload);
                 };
 
                 const params = new URLSearchParams({
                     mode: 'jsonp',
+                    format: 'compact',
                     secret: SHEETS_SYNC_SECRET,
                     callback: callbackName,
                     _ts: Date.now().toString()
@@ -1782,10 +1823,8 @@
             let centralErrorMessage = '';
 
             try {
-                const centralText = await loadCentralBaseViaAppsScript();
-                if (!centralText.trim()) throw new Error('Base central vazia.');
-
-                const result = applyCSVText(centralText, 'base central');
+                const centralPayload = await loadCentralBaseViaAppsScript();
+                const result = applyCompactBasePayload(centralPayload, 'base central');
                 showCSVFeedback(`Base central carregada com ${result.clients} clientes, ${result.products} produtos e ${result.sales} faturamentos.`, false);
                 console.info(`Base central carregada via Apps Script: ${result.clients} clientes, ${result.products} produtos, ${result.sales} faturamentos.`);
                 return;
