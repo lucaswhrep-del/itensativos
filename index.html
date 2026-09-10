@@ -202,7 +202,7 @@
                     <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Pesquisar por Código SAP</label>
                     <div class="relative">
                         <i class="lucide-search w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
-                        <input type="text" id="searchSap" oninput="filterClients()" placeholder="Ex: 5001712..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+                        <input type="text" id="searchSap" oninput="debouncedFilterClients()" placeholder="Ex: 5001712..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
@@ -210,7 +210,7 @@
                     <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Filtrar por Cliente Emissor (Razão Social)</label>
                     <div class="relative">
                         <i class="lucide-search w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
-                        <input type="text" id="searchClientName" oninput="filterClients()" placeholder="Nome Fantasia / Razão Social..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+                        <input type="text" id="searchClientName" oninput="debouncedFilterClients()" placeholder="Nome Fantasia / Razão Social..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
@@ -279,7 +279,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
                         <div class="relative">
                             <i class="lucide-search w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
-                            <input type="text" id="productClientSearch" oninput="populateProductClientPicker()" placeholder="Buscar código ou descrição..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+                            <input type="text" id="productClientSearch" oninput="debouncedPopulateProductClientPicker()" placeholder="Buscar código ou descrição..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
                         </div>
                         <select id="productClientPicker" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
                             <option value="">Selecione um produto</option>
@@ -414,7 +414,7 @@
                 <!-- PROCURA DE PRODUTOS -->
                 <div class="relative w-full md:w-72">
                   <i class="lucide-search w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-                  <input type="text" id="matrixSearchText" oninput="filterMatrix()" placeholder="Buscar material ou descrição..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                  <input type="text" id="matrixSearchText" oninput="debouncedFilterMatrix()" placeholder="Buscar material ou descrição..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
                 </div>
               </div>
 
@@ -561,7 +561,7 @@
 
     <!-- LOGIC & DATA PROCESS ENGINE -->
     <script>
-        const APP_VERSION = '2026-09-10-sync-compact-v11';
+        const APP_VERSION = '2026-09-10-performance-v12';
 
         // Ground truth aligned datasets from image_4370c4.png
         const INITIAL_CLIENTS = [
@@ -609,6 +609,11 @@
         let selectedProductFilterIds = [];
         let filteredSalesCache = null;
         let filteredSalesCacheKey = '';
+        let periodStatsCache = null;
+        let periodStatsCacheKey = '';
+        let matrixDataCache = null;
+        let matrixDataCacheKey = '';
+        let productById = new Map(products.map(product => [product.id, product]));
 
         const MONTH_LABELS = {
             '01': 'Janeiro',
@@ -796,7 +801,11 @@
         function saleMatchesPeriod(sale, period = getSelectedPeriod()) {
             if (!period.months.length && period.year === 'ALL') return true;
 
-            const salePeriod = getSalePeriodParts(sale.date);
+            const fallbackPeriod = (!sale.periodMonth || !sale.periodYear) ? getSalePeriodParts(sale.date) : null;
+            const salePeriod = {
+                month: sale.periodMonth || fallbackPeriod.month,
+                year: sale.periodYear || fallbackPeriod.year
+            };
             const matchesMonth = !period.months.length || period.months.includes(salePeriod.month);
             const matchesYear = period.year === 'ALL' || salePeriod.year === period.year;
 
@@ -813,9 +822,44 @@
             return filteredSalesCache;
         }
 
+        function getPeriodStats() {
+            const cacheKey = getSelectedPeriodCacheKey();
+            if (periodStatsCache && periodStatsCacheKey === cacheKey) return periodStatsCache;
+
+            const filteredSales = getFilteredSales();
+            const salesByClient = new Map();
+            const productIdsByClient = new Map();
+            const totalByClient = new Map();
+            const linesByClient = new Map();
+
+            filteredSales.forEach(sale => {
+                if (!salesByClient.has(sale.clientId)) salesByClient.set(sale.clientId, []);
+                salesByClient.get(sale.clientId).push(sale);
+
+                if (!productIdsByClient.has(sale.clientId)) productIdsByClient.set(sale.clientId, new Set());
+                productIdsByClient.get(sale.clientId).add(sale.productId);
+
+                totalByClient.set(sale.clientId, (totalByClient.get(sale.clientId) || 0) + ((sale.price || 0) * (sale.quantity || 0)));
+
+                const product = productById.get(sale.productId);
+                if (product?.line) {
+                    if (!linesByClient.has(sale.clientId)) linesByClient.set(sale.clientId, new Set());
+                    linesByClient.get(sale.clientId).add(product.line);
+                }
+            });
+
+            periodStatsCacheKey = cacheKey;
+            periodStatsCache = { filteredSales, salesByClient, productIdsByClient, totalByClient, linesByClient };
+            return periodStatsCache;
+        }
+
         function invalidateFilteredSalesCache() {
             filteredSalesCache = null;
             filteredSalesCacheKey = '';
+            periodStatsCache = null;
+            periodStatsCacheKey = '';
+            matrixDataCache = null;
+            matrixDataCacheKey = '';
         }
 
         function getPeriodLabel() {
@@ -850,7 +894,7 @@
             if (!select) return;
 
             const currentValue = select.value || 'ALL';
-            const years = [...new Set(sales.map(sale => getSalePeriodParts(sale.date).year).filter(Boolean))]
+            const years = [...new Set(sales.map(sale => sale.periodYear || getSalePeriodParts(sale.date).year).filter(Boolean))]
                 .sort((a, b) => b.localeCompare(a));
 
             select.innerHTML = '<option value="ALL">Todos os anos</option>' +
@@ -883,6 +927,7 @@
                     seller: selectedSeller !== 'ALL' ? selectedSeller : 'Todos',
                     clients: scopeClients,
                     clientIds: new Set(scopeClients.map(c => c.id)),
+                    cacheKey: `portfolio|${selectedRede}|${selectedSeller}|${scopeClients.length}`,
                     metaSap: `${scopeClients.length} clientes`,
                     bairro: 'Todas',
                     cidade: `${new Set(scopeClients.map(c => c.cidade).filter(Boolean)).size || 0} cidades`
@@ -897,6 +942,7 @@
                 seller: active?.seller || 'SEM VENDEDOR',
                 clients: active ? [active] : [],
                 clientIds: new Set(active ? [active.id] : []),
+                cacheKey: `client|${active?.id || 'none'}`,
                 metaSap: active ? `SAP: ${active.id}` : 'SAP: -',
                 bairro: active?.bairro || '-',
                 cidade: active?.cidade || '-'
@@ -1033,7 +1079,7 @@
 
         function getClientProductCoverage(clientId) {
             const selectedProducts = getSelectedProductFilters();
-            const clientProductIds = new Set(getFilteredSales().filter(s => s.clientId === clientId).map(s => s.productId));
+            const clientProductIds = getPeriodStats().productIdsByClient.get(clientId) || new Set();
             const bought = selectedProducts.filter(product => clientProductIds.has(product.id));
             const missing = selectedProducts.filter(product => !clientProductIds.has(product.id));
 
@@ -1116,8 +1162,8 @@
 
             grid.innerHTML = itemsToShow.map(c => {
                 const isSelected = selectedViewMode === 'client' && c.id === selectedClientId;
-                const clientSales = getFilteredSales().filter(s => s.clientId === c.id);
-                const uniqueProducts = new Set(clientSales.map(s => s.productId)).size;
+                const periodStats = getPeriodStats();
+                const uniqueProducts = (periodStats.productIdsByClient.get(c.id) || new Set()).size;
                 const rate = products.length > 0 ? (uniqueProducts / products.length) * 100 : 0;
                 const coverage = getClientProductCoverage(c.id);
                 const coverageClass = !coverage.total
@@ -1206,17 +1252,27 @@
             document.getElementById('activeClientCidade').innerText = scope.cidade;
 
             // Compute statistics
-            const clientSales = getFilteredSales().filter(s => scope.clientIds.has(s.clientId));
+            const periodStats = getPeriodStats();
             const totalItems = products.length;
-            
-            const positivados = products.filter(p => clientSales.some(s => s.productId === p.id)).length;
+            const boughtProductIds = new Set();
+            const lineIds = new Set();
+            let totalFaturado = 0;
+
+            scope.clients.forEach(client => {
+                const clientSales = periodStats.salesByClient.get(client.id) || [];
+                clientSales.forEach(sale => {
+                    boughtProductIds.add(sale.productId);
+                    totalFaturado += (sale.price || 0) * (sale.quantity || 0);
+
+                    const line = productById.get(sale.productId)?.line;
+                    if (line) lineIds.add(line);
+                });
+            });
+
+            const positivados = boughtProductIds.size;
             const naoPositivados = totalItems - positivados;
             const rate = totalItems > 0 ? (positivados / totalItems) * 100 : 0;
-            const totalFaturado = clientSales.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-            const familias = new Set(clientSales.map(s => {
-                const prod = products.find(p => p.id === s.productId);
-                return prod ? prod.line : null;
-            }).filter(Boolean)).size;
+            const familias = lineIds.size;
 
             // Update DOM metrics
             document.getElementById('percentText').innerText = `${rate.toFixed(0)}%`;
@@ -1240,24 +1296,44 @@
         }
 
         function buildMatrixData(scope = getActiveScope()) {
-            const clientSales = getFilteredSales().filter(s => scope.clientIds.has(s.clientId));
+            const cacheKey = `${getSelectedPeriodCacheKey()}|${scope.cacheKey}|${products.length}`;
+            if (matrixDataCache && matrixDataCacheKey === cacheKey) return matrixDataCache;
 
-            return products.map(product => {
-                const productSales = clientSales.filter(s => s.productId === product.id);
-                if (productSales.length > 0) {
-                    const salesByDate = productSales.reduce((acc, sale) => {
-                        const key = sale.date || 'SEM_DATA';
-                        if (!acc[key]) {
-                            acc[key] = { date: sale.date, sortValue: getDateSortValue(sale.date), quantity: 0, total: 0, latestPrice: sale.price };
-                        }
-                        acc[key].quantity += sale.quantity || 0;
-                        acc[key].total += (sale.price || 0) * (sale.quantity || 0);
-                        acc[key].latestPrice = sale.price;
-                        return acc;
-                    }, {});
-                    const purchases = Object.values(salesByDate);
-                    const sorted = [...purchases].sort((a, b) => b.sortValue - a.sortValue);
-                    const latest = sorted[0];
+            const periodStats = getPeriodStats();
+            const productSummaries = new Map();
+
+            scope.clients.forEach(client => {
+                const clientSales = periodStats.salesByClient.get(client.id) || [];
+                clientSales.forEach(sale => {
+                    let summary = productSummaries.get(sale.productId);
+                    if (!summary) {
+                        summary = { salesByDate: new Map(), accumulated: 0 };
+                        productSummaries.set(sale.productId, summary);
+                    }
+
+                    const key = sale.date || 'SEM_DATA';
+                    let purchase = summary.salesByDate.get(key);
+                    if (!purchase) {
+                        purchase = { date: sale.date, sortValue: sale.sortValue ?? getDateSortValue(sale.date), quantity: 0, total: 0, latestPrice: sale.price };
+                        summary.salesByDate.set(key, purchase);
+                    }
+
+                    purchase.quantity += sale.quantity || 0;
+                    purchase.total += (sale.price || 0) * (sale.quantity || 0);
+                    purchase.latestPrice = sale.price;
+                    summary.accumulated += (sale.price || 0) * (sale.quantity || 0);
+                });
+            });
+
+            matrixDataCacheKey = cacheKey;
+            matrixDataCache = products.map(product => {
+                const summary = productSummaries.get(product.id);
+                if (summary) {
+                    const purchases = Array.from(summary.salesByDate.values());
+                    const latest = purchases.reduce((best, purchase) =>
+                        !best || purchase.sortValue > best.sortValue ? purchase : best
+                    , null);
+
                     return {
                         ...product,
                         itemStatus: product.itemStatus || 'ATIVO',
@@ -1266,7 +1342,7 @@
                         lastPrice: latest.latestPrice,
                         lastQty: latest.quantity,
                         maxQty: Math.max(...purchases.map(p => p.quantity || 0)),
-                        accumulated: productSales.reduce((sum, s) => sum + (s.price * s.quantity), 0)
+                        accumulated: summary.accumulated
                     };
                 }
 
@@ -1281,15 +1357,17 @@
                     accumulated: 0
                 };
             });
+
+            return matrixDataCache;
         }
 
-        function getFilteredMatrixData(scope = getActiveScope()) {
+        function getFilteredMatrixData(scope = getActiveScope(), matrixData = buildMatrixData(scope)) {
             const searchVal = document.getElementById('matrixSearchText').value.toLowerCase();
             const typeFilter = document.getElementById('filterType').value;
             const lineFilter = document.getElementById('filterLine').value;
             const itemStatusFilter = document.getElementById('filterItemStatus').value;
 
-            return buildMatrixData(scope).filter(item => {
+            return matrixData.filter(item => {
                 const matchesSearch = item.name.toLowerCase().includes(searchVal) || item.id.includes(searchVal);
                 const matchesStatus = activeStatusFilter === 'ALL' || 
                                       (activeStatusFilter === 'POSITIVADO' && item.positivado) || 
@@ -1311,7 +1389,7 @@
             const tbody = document.getElementById('matrixTableBody');
             const scope = getActiveScope();
             const matrixData = buildMatrixData(scope);
-            const filtered = getFilteredMatrixData(scope);
+            const filtered = getFilteredMatrixData(scope, matrixData);
 
             document.getElementById('matrixFooterStats').innerText = `Mapeando ${filtered.length} de ${matrixData.length} produtos no portfólio.`;
 
@@ -1407,9 +1485,10 @@
         function exportCurrentAnalysisToExcel() {
             const scope = getActiveScope();
             const filteredClients = getFilteredClientsForDisplay();
-            const filteredSales = getFilteredSales();
+            const periodStats = getPeriodStats();
             const selectedProducts = getSelectedProductFilters();
-            const matrixRows = getFilteredMatrixData(scope).map(item => [
+            const matrixData = buildMatrixData(scope);
+            const matrixRows = getFilteredMatrixData(scope, matrixData).map(item => [
                 item.id,
                 item.name,
                 item.type,
@@ -1423,9 +1502,8 @@
             ]);
 
             const clientRows = filteredClients.map(client => {
-                const clientSales = filteredSales.filter(sale => sale.clientId === client.id);
-                const uniqueProducts = new Set(clientSales.map(sale => sale.productId)).size;
-                const totalFaturado = clientSales.reduce((sum, sale) => sum + ((sale.price || 0) * (sale.quantity || 0)), 0);
+                const uniqueProducts = (periodStats.productIdsByClient.get(client.id) || new Set()).size;
+                const totalFaturado = periodStats.totalByClient.get(client.id) || 0;
                 const coverage = getClientProductCoverage(client.id);
 
                 return [
@@ -1597,7 +1675,17 @@
                     });
                 }
 
-                parsedSales.push({ clientId: sap, productId: materialId, date: formattedDate, price: price, quantity: quantity });
+                const periodParts = getSalePeriodParts(formattedDate);
+                parsedSales.push({
+                    clientId: sap,
+                    productId: materialId,
+                    date: formattedDate,
+                    price: price,
+                    quantity: quantity,
+                    sortValue: getDateSortValue(formattedDate),
+                    periodMonth: periodParts.month,
+                    periodYear: periodParts.year
+                });
             }
 
             return applyParsedData(parsedClients, parsedProducts, parsedSales, sourceLabel);
@@ -1611,6 +1699,7 @@
             clients = parsedClients;
             products = parsedProducts;
             sales = parsedSales;
+            productById = new Map(products.map(product => [product.id, product]));
             invalidateFilteredSalesCache();
             selectedClientId = parsedClients[0].id;
             selectedViewMode = 'client';
@@ -1665,7 +1754,15 @@
                 date: normalizeDateValue(row[2] || ''),
                 price: Number(row[3]) || 0,
                 quantity: Number(row[4]) || 0
-            }));
+            })).map(sale => {
+                const periodParts = getSalePeriodParts(sale.date);
+                return {
+                    ...sale,
+                    sortValue: getDateSortValue(sale.date),
+                    periodMonth: periodParts.month,
+                    periodYear: periodParts.year
+                };
+            });
 
             return applyParsedData(parsedClients, parsedProducts, parsedSales, sourceLabel);
         }
@@ -1692,6 +1789,30 @@
 
         function wait(ms) {
             return new Promise(resolve => window.setTimeout(resolve, ms));
+        }
+
+        function debounce(fn, delay = 140) {
+            let timeoutId;
+            return (...args) => {
+                window.clearTimeout(timeoutId);
+                timeoutId = window.setTimeout(() => fn(...args), delay);
+            };
+        }
+
+        const runDebouncedFilterClients = debounce(() => filterClients(), 140);
+        const runDebouncedFilterMatrix = debounce(() => filterMatrix(), 140);
+        const runDebouncedPopulateProductClientPicker = debounce(() => populateProductClientPicker(), 140);
+
+        function debouncedFilterClients() {
+            runDebouncedFilterClients();
+        }
+
+        function debouncedFilterMatrix() {
+            runDebouncedFilterMatrix();
+        }
+
+        function debouncedPopulateProductClientPicker() {
+            runDebouncedPopulateProductClientPicker();
         }
 
         function handleCSVUpload(event) {
