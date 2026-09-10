@@ -169,10 +169,10 @@ function buildCompactPayload(values) {
   const dateIdx = getIdx(['dt faturamento', 'data da ordem', 'data faturamento', 'faturamento', 'data']);
   const typeIdx = getIdx(['tipo produto', 'tipo de produto', 'conservacao', 'conservação'], ['descricao', 'descrição', 'linha']);
   const materialIdx = getIdx(['material', 'codigo material', 'código material', 'material id'], ['descricao', 'descrição']);
-  const descIdx = getIdx(['descricao material', 'descrição material', 'descricao produto', 'descrição produto', 'produto', 'item'], ['tipo produto', 'tipo de produto', 'conservacao', 'conservação']);
+  const descIdx = getIdx(['descricao material', 'descrição material', 'descri o material', 'descri material', 'descricao produto', 'descrição produto', 'descri o produto', 'descri produto', 'produto', 'item'], ['tipo produto', 'tipo de produto', 'conservacao', 'conservação']);
   const lineIdx = getIdx(['descricao linha', 'descrição linha', 'linha', 'familia', 'família'], ['material', 'produto']);
   const statusIdx = getIdx(['situacao item', 'situação item', 'status item', 'status produto', 'situacao produto', 'situação produto', 'ativo inativo', 'ativo/inativo', 'status', 'situacao', 'situação']);
-  const priceIdx = getIdx(['preco', 'preço', 'valor', 'unitario', 'unitário']);
+  const priceIdx = getIdx(['preco', 'preço', 'pre o', 'valor', 'unitario', 'unitário']);
   const qtyIdx = getIdx(['total', 'quant. cx', 'quant', 'quantidade', 'qtd']);
 
   if (sapIdx === -1 || materialIdx === -1 || descIdx === -1) {
@@ -270,7 +270,11 @@ function findHeaderInfo(values) {
 
     const hasDescription = headers.some(function(header) {
       return header.indexOf('descricao material') !== -1 ||
+        header.indexOf('descri o material') !== -1 ||
+        header.indexOf('descri material') !== -1 ||
         header.indexOf('descricao produto') !== -1 ||
+        header.indexOf('descri o produto') !== -1 ||
+        header.indexOf('descri produto') !== -1 ||
         header === 'produto' ||
         header === 'item';
     });
